@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wyvern</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-0: #070c17;
+      --bg-1: #0f1730;
+      --bg-2: #172246;
+      --text: #f5f8ff;
+      --muted: #b8c7ea;
+      --line: rgba(255, 255, 255, 0.14);
+      --accent: #6be7ff;
+      --accent-2: #6fffba;
+      --card: rgba(11, 19, 39, 0.8);
+      --shadow: 0 28px 72px rgba(0, 0, 0, 0.45);
+      --radius: 20px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      color: var(--text);
+      font-family: "Manrope", sans-serif;
+      background:
+        radial-gradient(820px 500px at 15% 88%, rgba(107, 231, 255, 0.15), transparent 70%),
+        radial-gradient(740px 500px at 85% 10%, rgba(111, 255, 186, 0.11), transparent 70%),
+        linear-gradient(140deg, var(--bg-0), var(--bg-1) 52%, var(--bg-2));
+      overflow-x: hidden;
+    }
+
+    .shape {
+      position: fixed;
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(6px);
+      opacity: 0.7;
+    }
+    .shape.a {
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      left: -80px;
+      top: 12%;
+      background: radial-gradient(circle at 30% 30%, rgba(107, 231, 255, 0.4), transparent 70%);
+      animation: driftA 10s ease-in-out infinite alternate;
+    }
+    .shape.b {
+      width: 340px;
+      height: 340px;
+      border-radius: 50%;
+      right: -120px;
+      bottom: -60px;
+      background: radial-gradient(circle at 40% 40%, rgba(111, 255, 186, 0.35), transparent 72%);
+      animation: driftB 12s ease-in-out infinite alternate;
+    }
+    @keyframes driftA {
+      from { transform: translate(0, 0); }
+      to { transform: translate(14px, 20px); }
+    }
+    @keyframes driftB {
+      from { transform: translate(0, 0); }
+      to { transform: translate(-18px, -16px); }
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 26px 20px 42px;
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 36px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-wrap {
+      width: 50px;
+      height: 50px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .logo-wrap img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      filter: drop-shadow(0 8px 20px rgba(107, 231, 255, 0.36));
+    }
+    .brand h1 {
+      margin: 0;
+      font-family: "Sora", sans-serif;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      font-size: 22px;
+    }
+    .cta-top {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .cta-top:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+    .hero-main {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--card);
+      box-shadow: var(--shadow);
+      padding: 30px 28px;
+    }
+    .hero-main h2 {
+      margin: 0;
+      font-family: "Sora", sans-serif;
+      font-size: clamp(29px, 5vw, 52px);
+      line-height: 1.05;
+      letter-spacing: 0.5px;
+    }
+    .hero-main p {
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.55;
+      max-width: 48ch;
+    }
+    .hero-actions {
+      margin-top: 22px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-family: "Sora", sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.04);
+    }
+    .btn.primary {
+      color: #011522;
+      background: linear-gradient(130deg, var(--accent), #76aeff);
+    }
+    .btn.secondary {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
+
+    .hero-side {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 14px;
+    }
+    .stat {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 14px;
+    }
+    .stat .n {
+      font-family: "Sora", sans-serif;
+      font-size: 30px;
+      color: var(--accent-2);
+      line-height: 1;
+    }
+    .stat .t {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .feature {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(9, 16, 32, 0.78);
+      padding: 16px;
+    }
+    .feature h3 {
+      margin: 0 0 8px;
+      font-family: "Sora", sans-serif;
+      font-size: 17px;
+    }
+    .feature p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .join {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(140deg, rgba(107, 231, 255, 0.15), rgba(111, 255, 186, 0.08)),
+        rgba(9, 16, 31, 0.82);
+      box-shadow: var(--shadow);
+      padding: 22px 20px;
+      text-align: center;
+    }
+    .join h4 {
+      margin: 0;
+      font-family: "Sora", sans-serif;
+      font-size: clamp(22px, 4vw, 34px);
+      line-height: 1.1;
+    }
+    .join p {
+      margin: 10px auto 0;
+      color: var(--muted);
+      max-width: 58ch;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    .join .btn {
+      margin-top: 16px;
+      min-width: 210px;
+    }
+
+    .foot {
+      margin-top: 16px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    @media (max-width: 940px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shape a"></div>
+  <div class="shape b"></div>
+
+  <main class="page">
+    <header class="top">
+      <div class="brand">
+        <div class="logo-wrap">
+          <img src="../wyvern_logo_transparent.png" alt="Wyvern logo" />
+        </div>
+        <h1>WYVERN</h1>
+      </div>
+      <button id="goTopBtn" class="cta-top" type="button">Open Wyvern</button>
+    </header>
+
+    <section class="hero">
+      <article class="hero-main">
+        <h2>Where your people<br/>actually want to hang out.</h2>
+        <p>
+          Wyvern is built for every kind of community. Chat, share moments, and stay connected in a space that feels alive from the first message.
+        </p>
+        <div class="hero-actions">
+          <button id="goHeroBtn" class="btn primary" type="button">Go to Wyvern</button>
+          <button id="learnBtn" class="btn secondary" type="button">See What’s New</button>
+        </div>
+      </article>
+
+      <aside class="hero-side">
+        <div class="stat">
+          <div class="n">Fast</div>
+          <div class="t">Start conversations instantly and keep them flowing.</div>
+        </div>
+        <div class="stat">
+          <div class="n">Clear</div>
+          <div class="t">Everything feels focused, simple, and easy to use.</div>
+        </div>
+        <div class="stat">
+          <div class="n">Yours</div>
+          <div class="t">Personalize your profile, spaces, and vibe.</div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="feature-grid">
+      <article class="feature">
+        <h3>Servers & Spaces</h3>
+        <p>Create homes for your groups with channels for everything from quick check-ins to deep conversations.</p>
+      </article>
+      <article class="feature">
+        <h3>Direct Messages</h3>
+        <p>Jump into private chats with friends and teammates whenever you want one-on-one time.</p>
+      </article>
+      <article class="feature">
+        <h3>Share Moments</h3>
+        <p>Post photos, clips, and files in chat so your conversations stay rich and expressive.</p>
+      </article>
+    </section>
+
+    <section class="join">
+      <h4>Ready to jump in?</h4>
+      <p>
+        Bring your community to Wyvern and make every conversation feel like it belongs.
+      </p>
+      <button id="goJoinBtn" class="btn primary" type="button">Go to Wyvern</button>
+    </section>
+
+    <div class="foot">WYVERN</div>
+  </main>
+
+  <script>
+    // Set this to your live Wyvern URL.
+    const WYVERN_URL = "https://greatest-cohen-jumping-warren.trycloudflare.com";
+
+    const MIRROR_BASE = "/mirror";
+    const MIRROR_PREFIXES = ["/api/", "/media/"];
+
+    function normalizeUrl(input) {
+      try { return new URL(input, window.location.origin); } catch { return null; }
+    }
+
+    function shouldMirror(urlObj) {
+      if (!urlObj) return false;
+      if (urlObj.origin !== window.location.origin) return false;
+      return MIRROR_PREFIXES.some((prefix) => urlObj.pathname.startsWith(prefix));
+    }
+
+    function toMirrorUrl(urlObj) {
+      return `${window.location.origin}${MIRROR_BASE}${urlObj.pathname}${urlObj.search}`;
+    }
+
+    function patchFetchMirror() {
+      const nativeFetch = window.fetch.bind(window);
+      window.fetch = async function patchedFetch(input, init) {
+        if (typeof input === "string" || input instanceof URL) {
+          const candidate = normalizeUrl(String(input));
+          if (shouldMirror(candidate)) input = toMirrorUrl(candidate);
+        } else if (input instanceof Request) {
+          const candidate = normalizeUrl(input.url);
+          if (shouldMirror(candidate)) input = new Request(toMirrorUrl(candidate), input);
+        }
+        return nativeFetch(input, init);
+      };
+    }
+
+    function patchXhrMirror() {
+      const nativeOpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function patchedOpen(method, url, ...rest) {
+        const candidate = normalizeUrl(String(url));
+        const nextUrl = shouldMirror(candidate) ? toMirrorUrl(candidate) : url;
+        return nativeOpen.call(this, method, nextUrl, ...rest);
+      };
+    }
+
+    function goToWyvern() {
+      if (!/^https?:\/\//i.test(WYVERN_URL)) {
+        alert("Please set WYVERN_URL first.");
+        return;
+      }
+      window.location.href = WYVERN_URL;
+    }
+
+    function init() {
+      patchFetchMirror();
+      patchXhrMirror();
+
+      const goTopBtn = document.getElementById("goTopBtn");
+      const goHeroBtn = document.getElementById("goHeroBtn");
+      const goJoinBtn = document.getElementById("goJoinBtn");
+      const learnBtn = document.getElementById("learnBtn");
+
+      goTopBtn.addEventListener("click", goToWyvern);
+      goHeroBtn.addEventListener("click", goToWyvern);
+      goJoinBtn.addEventListener("click", goToWyvern);
+      learnBtn.addEventListener("click", () => {
+        const target = document.querySelector(".feature-grid");
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

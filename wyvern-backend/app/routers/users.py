@@ -1,0 +1,126 @@
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database import get_db
+from app.models import User
+from app.schemas.user import PresenceOut, PresenceUpdateRequest, UserOut
+from app.services.presence import presence_service
+from app.utils.dependencies import get_current_user
+from app.utils.responses import success_response
+
+
+router = APIRouter(prefix="/users", tags=["users"])
+
+
+class UserUpdateRequest(BaseModel):
+    avatar: str | None = None
+    username: str | None = Field(default=None, min_length=2, max_length=32)
+    display_name: str | None = Field(default=None, min_length=1, max_length=64)
+    bio: str | None = Field(default=None, max_length=280)
+    directory_opt_in: bool | None = None
+
+
+@router.get("/me")
+async def me(current_user: User = Depends(get_current_user)) -> dict:
+    return success_response(UserOut.model_validate(current_user).model_dump())
+
+
+@router.patch("/me")
+async def update_me(
+    payload: UserUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    provided = payload.model_fields_set
+
+    if "avatar" in provided:
+        current_user.avatar = payload.avatar
+    if "username" in provided and payload.username is not None:
+        current_user.username = payload.username
+    if "display_name" in provided:
+        current_user.display_name = payload.display_name
+    if "bio" in provided:
+        current_user.bio = payload.bio
+    if "directory_opt_in" in provided and payload.directory_opt_in is not None:
+        current_user.directory_opt_in = payload.directory_opt_in
+    await db.commit()
+    await db.refresh(current_user)
+    return success_response(UserOut.model_validate(current_user).model_dump())
+
+
+@router.get("/lookup")
+async def lookup_user(
+    q: str = Query(..., min_length=2, max_length=64, description="username or username#1234"),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> dict:
+    query_value = q.strip()
+
+    result = None
+    if "#" in query_value:
+        username_part, discriminator = query_value.rsplit("#", 1)
+        username_part = username_part.strip()
+        discriminator = discriminator.strip()
+        if len(discriminator) == 4 and discriminator.isdigit():
+            result = await db.execute(
+                select(User).where(
+                    func.lower(User.username) == username_part.lower(),
+                    User.discriminator == discriminator,
+                )
+            )
+    else:
+        lowered = query_value.lower()
+        result = await db.execute(
+            select(User)
+            .where(
+                or_(
+                    func.lower(User.username) == lowered,
+                    func.lower(func.coalesce(User.display_name, "")) == lowered,
+                )
+            )
+            .order_by(User.id.asc())
+            .limit(1)
+        )
+
+    user = result.scalar_one_or_none() if result is not None else None
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    return success_response(UserOut.model_validate(user).model_dump())
+
+
+@router.get("/directory")
+async def user_directory(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)) -> dict:
+    result = await db.execute(
+        select(User)
+        .where(User.directory_opt_in.is_(True))
+        .order_by(
+            func.lower(func.coalesce(User.display_name, User.username)).asc(),
+            User.id.asc(),
+        )
+    )
+    users = result.scalars().all()
+    return success_response([UserOut.model_validate(user).model_dump() for user in users])
+
+
+@router.get("/{user_id}")
+async def get_user(user_id: int, db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)) -> dict:
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return success_response(UserOut.model_validate(user).model_dump())
+
+
+@router.put("/me/presence")
+async def set_presence(payload: PresenceUpdateRequest, current_user: User = Depends(get_current_user)) -> dict:
+    await presence_service.set_presence(current_user.id, payload.status)
+    return success_response(PresenceOut(user_id=current_user.id, status=payload.status).model_dump())
+
+
+@router.get("/{user_id}/presence")
+async def get_presence(user_id: int, _: User = Depends(get_current_user)) -> dict:
+    status_value = await presence_service.get_presence(user_id)
+    return success_response(PresenceOut(user_id=user_id, status=status_value).model_dump())
