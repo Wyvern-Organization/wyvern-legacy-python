@@ -5,250 +5,541 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wyvern Admin</title>
   <link rel="icon" href="/static/wyvern-logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
   <style>
     :root {
-      --bg: #111218;
-      --bg-soft: #191b24;
-      --card: #1f2230;
-      --stroke: #2f3550;
-      --text: #f4f5ff;
-      --muted: #9fa5c8;
-      --brand: #5662f6;
-      --ok: #2ecc71;
-      --warn: #f39c12;
-      --radius: 14px;
+      --neon: #00c8ff;
+      --neon-dim: rgba(0, 200, 255, 0.12);
+      --neon-dimmer: rgba(0, 200, 255, 0.07);
+      --neon-glow: 0 0 10px rgba(0, 200, 255, 0.22);
+      --bg: #000000;
+      --surface: #0a0a0a;
+      --surface-2: #111111;
+      --line: rgba(255, 255, 255, 0.08);
+      --text: #ffffff;
+      --text-soft: rgba(255, 255, 255, 0.82);
+      --text-muted: rgba(255, 255, 255, 0.46);
+      --danger: #ff3a55;
+      --warn: #ffa820;
+      --ok: #00c8ff;
+      --radius: 10px;
     }
-    * { box-sizing: border-box; }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
-      font-family: "Segoe UI", "Inter", sans-serif;
-      background:
-        radial-gradient(circle at 12% 8%, rgba(86,98,246,0.18), transparent 40%),
-        radial-gradient(circle at 88% 20%, rgba(122,132,255,0.12), transparent 35%),
-        var(--bg);
-      color: var(--text);
       min-height: 100vh;
+      background:
+        radial-gradient(circle at 14% 10%, rgba(0, 200, 255, 0.12), transparent 28%),
+        radial-gradient(circle at 84% 18%, rgba(0, 200, 255, 0.08), transparent 24%),
+        linear-gradient(180deg, #010101 0%, #000000 100%);
+      color: var(--text);
+      font-family: "Inter", sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
+
     .shell {
-      max-width: 1280px;
+      max-width: 1320px;
       margin: 0 auto;
-      padding: 24px;
-      display: grid;
-      gap: 16px;
+      padding: 24px 20px 48px;
     }
+
     .topbar {
-      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
-      border: 1px solid var(--stroke);
-      border-radius: var(--radius);
-      padding: 16px 18px;
+      position: sticky;
+      top: 18px;
+      z-index: 20;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 16px;
+      padding: 14px 18px;
+      background: rgba(0, 0, 0, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      margin-bottom: 20px;
     }
+
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      letter-spacing: 0.4px;
+      gap: 12px;
     }
+
     .brand img {
-      width: 28px;
-      height: 28px;
+      width: 34px;
+      height: 34px;
       object-fit: contain;
     }
+
+    .brand-title {
+      color: var(--neon);
+      font-family: "Orbitron", sans-serif;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      text-shadow: var(--neon-glow);
+    }
+
+    .brand-sub {
+      color: var(--text-muted);
+      font-size: 11px;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
     .top-actions {
       display: flex;
-      gap: 8px;
+      align-items: center;
+      gap: 10px;
       flex-wrap: wrap;
     }
+
+    .status-line {
+      color: var(--text-muted);
+      font-size: 12px;
+      letter-spacing: 0.6px;
+    }
+
+    .status-line.ok {
+      color: var(--ok);
+    }
+
+    .status-line.warn {
+      color: var(--warn);
+    }
+
     .btn {
-      border: 1px solid var(--stroke);
-      background: var(--card);
-      color: var(--text);
-      border-radius: 10px;
-      padding: 9px 12px;
-      font-size: 13px;
-      cursor: pointer;
-      text-decoration: none;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
+      min-width: 128px;
+      height: 40px;
+      padding: 0 16px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
     }
-    .btn.primary {
-      background: var(--brand);
-      border-color: transparent;
+
+    .btn:hover {
+      transform: translateY(-1px);
     }
+
+    .btn-primary {
+      background: var(--neon-dim);
+      color: var(--neon);
+    }
+
+    .btn-primary:hover {
+      background: rgba(0, 200, 255, 0.18);
+      box-shadow: var(--neon-glow);
+    }
+
+    .btn-ghost:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .hero-card,
+    .stat,
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::before,
+    .stat::before,
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0, 200, 255, 0.32), transparent);
+      opacity: 0.85;
+    }
+
+    .hero-card {
+      padding: 28px;
+    }
+
+    .hero-label {
+      color: var(--neon);
+      font-family: "Orbitron", sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      opacity: 0.72;
+      margin-bottom: 10px;
+    }
+
+    .hero-title {
+      color: var(--text);
+      font-family: "Orbitron", sans-serif;
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 800;
+      letter-spacing: 2px;
+      line-height: 1.06;
+    }
+
+    .hero-copy {
+      max-width: 60ch;
+      margin-top: 16px;
+      color: rgba(255, 255, 255, 0.66);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .hero-side {
+      display: grid;
+      gap: 12px;
+    }
+
+    .hero-chip {
+      padding: 16px 18px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+    }
+
+    .hero-chip-label {
+      color: var(--text-muted);
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .hero-chip-value {
+      margin-top: 8px;
+      color: var(--neon);
+      font-family: "Orbitron", sans-serif;
+      font-size: 22px;
+      letter-spacing: 2px;
+    }
+
     .stats {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
+      gap: 16px;
+      margin-bottom: 16px;
     }
+
     .stat {
-      background: var(--bg-soft);
-      border: 1px solid var(--stroke);
-      border-radius: var(--radius);
-      padding: 14px;
+      padding: 18px;
     }
+
     .stat .label {
-      color: var(--muted);
-      font-size: 12px;
+      color: var(--text-muted);
+      font-size: 11px;
+      letter-spacing: 1.4px;
       text-transform: uppercase;
-      letter-spacing: 0.7px;
     }
+
     .stat .value {
-      margin-top: 6px;
-      font-size: 28px;
-      font-weight: 700;
+      margin-top: 10px;
+      color: var(--neon);
+      font-family: "Orbitron", sans-serif;
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      line-height: 1;
     }
+
     .grid {
       display: grid;
-      gap: 12px;
-      grid-template-columns: 1.2fr 1fr;
+      grid-template-columns: 1.25fr 0.95fr;
+      gap: 16px;
     }
+
     .panel {
-      background: var(--bg-soft);
-      border: 1px solid var(--stroke);
-      border-radius: var(--radius);
-      min-height: 260px;
+      min-height: 280px;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
     }
+
+    .panel-wide {
+      grid-column: 1 / -1;
+    }
+
     .panel-head {
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--stroke);
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      gap: 8px;
-    }
-    .panel-title {
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.6px;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .panel-body {
-      padding: 10px;
-      overflow: auto;
-      max-height: 520px;
-    }
-    .activity-item {
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 10px;
-      padding: 10px;
-      margin-bottom: 8px;
-      background: rgba(255,255,255,0.02);
-    }
-    .activity-item:last-child { margin-bottom: 0; }
-    .activity-title { font-size: 13px; font-weight: 600; }
-    .activity-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .activity-meta {
-      margin-top: 6px;
-      display: flex;
       justify-content: space-between;
       gap: 8px;
-      color: var(--muted);
-      font-size: 11px;
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
+
+    .panel-title {
+      color: var(--neon);
+      font-family: "Orbitron", sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .panel-body {
+      padding: 12px;
+      overflow: auto;
+      max-height: 560px;
+    }
+
+    .activity-item,
+    .row {
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .activity-item {
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .activity-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .activity-title {
+      color: var(--text-soft);
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.55;
+    }
+
+    .activity-sub {
+      margin-top: 4px;
+      color: var(--text-muted);
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .activity-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
+      color: rgba(255, 255, 255, 0.58);
+      font-size: 12px;
+    }
+
     .list {
       display: grid;
-      gap: 8px;
+      gap: 10px;
     }
+
     .row {
-      border: 1px solid rgba(255,255,255,0.06);
-      background: rgba(255,255,255,0.02);
-      border-radius: 10px;
-      padding: 10px;
       display: grid;
       grid-template-columns: auto 1fr auto;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
+      padding: 12px;
     }
-    .avatar, .icon {
-      width: 36px;
-      height: 36px;
+
+    .avatar,
+    .icon {
+      width: 40px;
+      height: 40px;
       border-radius: 10px;
-      background: #323650;
+      background: var(--surface-2);
+      color: var(--neon);
       display: grid;
       place-items: center;
+      font-size: 12px;
       font-weight: 700;
-      font-size: 13px;
       overflow: hidden;
     }
-    .avatar img, .icon img {
+
+    .avatar img,
+    .icon img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-    .name { font-size: 14px; font-weight: 600; }
-    .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .name {
+      color: var(--text-soft);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .sub {
+      margin-top: 3px;
+      color: rgba(255, 255, 255, 0.54);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
     .tag {
-      font-size: 11px;
-      color: var(--muted);
-      border: 1px solid rgba(255,255,255,0.12);
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 10px;
       border-radius: 999px;
-      padding: 3px 8px;
+      background: var(--neon-dimmer);
+      color: var(--neon);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
       white-space: nowrap;
     }
+
     .empty {
-      color: var(--muted);
+      display: grid;
+      place-items: center;
+      min-height: 180px;
+      color: var(--text-muted);
+      font-size: 13px;
       text-align: center;
       padding: 24px;
-      font-size: 13px;
     }
-    .status-line {
-      font-size: 12px;
-      color: var(--muted);
+
+    @media (max-width: 1040px) {
+      .hero,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
     }
-    .status-line.ok { color: var(--ok); }
-    .status-line.warn { color: var(--warn); }
-    @media (max-width: 1000px) {
-      .stats { grid-template-columns: 1fr; }
-      .grid { grid-template-columns: 1fr; }
+
+    @media (max-width: 640px) {
+      .shell {
+        padding: 14px;
+      }
+
+      .topbar {
+        position: static;
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .top-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .btn {
+        width: 100%;
+      }
+
+      .row {
+        grid-template-columns: 1fr;
+        align-items: flex-start;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <div class="topbar">
+  <main class="shell">
+    <header class="topbar">
       <div class="brand">
-        <img src="/static/wyvern-logo.png" alt="Wyvern" />
-        <span>Wyvern Admin</span>
+        <img src="/wyvern_logo.png" alt="Wyvern" />
+        <div>
+          <div class="brand-title">WYVERN ADMIN</div>
+          <div class="brand-sub">Oversight Console</div>
+        </div>
       </div>
       <div class="top-actions">
-        <span id="status" class="status-line">Loading...</span>
-        <button id="refreshBtn" class="btn">Refresh</button>
-        <a class="btn primary" href="/">Open Wyvern</a>
+        <span id="status" class="status-line">Loading admin overview...</span>
+        <button id="refreshBtn" class="btn btn-ghost" type="button">Refresh</button>
+        <a class="btn btn-primary" href="/">Open Wyvern</a>
       </div>
-    </div>
+    </header>
 
-    <div class="stats">
-      <div class="stat"><div class="label">Users</div><div id="usersCount" class="value">-</div></div>
-      <div class="stat"><div class="label">Servers</div><div id="serversCount" class="value">-</div></div>
-      <div class="stat"><div class="label">Activity Events</div><div id="eventsCount" class="value">-</div></div>
-    </div>
+    <section class="hero">
+      <article class="hero-card">
+        <div class="hero-label">Operator View</div>
+        <div class="hero-title">See users, servers, and platform activity in one place.</div>
+        <div class="hero-copy">
+          The admin overview tracks the shape of the network in real time, with account visibility, server visibility, and recent activity all surfaced in one neon console.
+        </div>
+      </article>
 
-    <div class="grid">
+      <aside class="hero-side">
+        <div class="hero-chip">
+          <div class="hero-chip-label">Visibility</div>
+          <div class="hero-chip-value">LIVE</div>
+        </div>
+        <div class="hero-chip">
+          <div class="hero-chip-label">Scope</div>
+          <div class="hero-chip-value">USERS</div>
+        </div>
+        <div class="hero-chip">
+          <div class="hero-chip-label">Scope</div>
+          <div class="hero-chip-value">SERVERS</div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="stats">
+      <article class="stat">
+        <div class="label">Users</div>
+        <div id="usersCount" class="value">-</div>
+      </article>
+      <article class="stat">
+        <div class="label">Servers</div>
+        <div id="serversCount" class="value">-</div>
+      </article>
+      <article class="stat">
+        <div class="label">Activity Events</div>
+        <div id="eventsCount" class="value">-</div>
+      </article>
+    </section>
+
+    <section class="grid">
       <section class="panel">
-        <div class="panel-head"><div class="panel-title">Activity</div></div>
+        <div class="panel-head">
+          <div class="panel-title">Activity</div>
+        </div>
         <div id="activity" class="panel-body"></div>
       </section>
 
       <section class="panel">
-        <div class="panel-head"><div class="panel-title">Users</div></div>
+        <div class="panel-head">
+          <div class="panel-title">Users</div>
+        </div>
         <div id="users" class="panel-body"></div>
       </section>
 
-      <section class="panel" style="grid-column: 1 / -1;">
-        <div class="panel-head"><div class="panel-title">Servers</div></div>
+      <section class="panel panel-wide">
+        <div class="panel-head">
+          <div class="panel-title">Servers</div>
+        </div>
         <div id="servers" class="panel-body"></div>
       </section>
-    </div>
-  </div>
+    </section>
+  </main>
 
   <script>
     const API_PREFIX = '/api/v1';
@@ -272,9 +563,9 @@
     }
 
     function fmtTs(ts) {
-      const d = new Date(ts);
-      if (Number.isNaN(d.getTime())) return '-';
-      return d.toLocaleString();
+      const date = new Date(ts);
+      if (Number.isNaN(date.getTime())) return '-';
+      return date.toLocaleString();
     }
 
     function authHeader() {
@@ -301,6 +592,7 @@
     function makeAvatar(name, imgUrl) {
       const wrap = document.createElement('div');
       wrap.className = 'avatar';
+
       if (imgUrl) {
         const img = document.createElement('img');
         img.src = imgUrl;
@@ -313,6 +605,7 @@
       } else {
         wrap.textContent = initials(name);
       }
+
       return wrap;
     }
 
@@ -326,6 +619,7 @@
         els.users.innerHTML = '<div class="empty">No users found.</div>';
         return;
       }
+
       const list = document.createElement('div');
       list.className = 'list';
 
@@ -340,6 +634,7 @@
         const name = document.createElement('div');
         name.className = 'name';
         name.textContent = label;
+
         const sub = document.createElement('div');
         sub.className = 'sub';
         sub.textContent = `${user.username}#${user.discriminator} • ${user.email}${user.bio ? ` • ${user.bio}` : ''}`;
@@ -353,6 +648,7 @@
 
         list.appendChild(row);
       }
+
       els.users.replaceChildren(list);
     }
 
@@ -361,6 +657,7 @@
         els.servers.innerHTML = '<div class="empty">No servers found.</div>';
         return;
       }
+
       const list = document.createElement('div');
       list.className = 'list';
 
@@ -388,6 +685,7 @@
         const name = document.createElement('div');
         name.className = 'name';
         name.textContent = server.name || 'Server';
+
         const sub = document.createElement('div');
         sub.className = 'sub';
         const desc = (server.description || '').trim();

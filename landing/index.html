@@ -4,364 +4,900 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wyvern</title>
+  <meta
+    name="description"
+    content="Wyvern is a next-generation space for communities, friend groups, teams, and anyone who wants chat to feel alive."
+  />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
   <style>
-    :root {
-      --bg-0: #070c17;
-      --bg-1: #0f1730;
-      --bg-2: #172246;
-      --text: #f5f8ff;
-      --muted: #b8c7ea;
-      --line: rgba(255, 255, 255, 0.14);
-      --accent: #6be7ff;
-      --accent-2: #6fffba;
-      --card: rgba(11, 19, 39, 0.8);
-      --shadow: 0 28px 72px rgba(0, 0, 0, 0.45);
-      --radius: 20px;
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
 
-    * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; }
+    :root {
+      --neon: #00c8ff;
+      --neon-deep: #0099cc;
+      --neon-dim: rgba(0, 200, 255, 0.12);
+      --neon-dimmer: rgba(0, 200, 255, 0.07);
+      --neon-glow: 0 0 10px rgba(0, 200, 255, 0.22);
+      --bg: #000000;
+      --surface: #0a0a0a;
+      --surface-2: #111111;
+      --surface-3: #161616;
+      --line: rgba(255, 255, 255, 0.08);
+      --line-strong: rgba(0, 200, 255, 0.22);
+      --text: #ffffff;
+      --text-soft: rgba(255, 255, 255, 0.82);
+      --text-muted: rgba(255, 255, 255, 0.48);
+      --radius: 10px;
+      --page-w: 1140px;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
-      color: var(--text);
-      font-family: "Manrope", sans-serif;
+      min-height: 100vh;
       background:
-        radial-gradient(820px 500px at 15% 88%, rgba(107, 231, 255, 0.15), transparent 70%),
-        radial-gradient(740px 500px at 85% 10%, rgba(111, 255, 186, 0.11), transparent 70%),
-        linear-gradient(140deg, var(--bg-0), var(--bg-1) 52%, var(--bg-2));
+        radial-gradient(circle at 16% 14%, rgba(0, 200, 255, 0.14), transparent 30%),
+        radial-gradient(circle at 88% 20%, rgba(0, 200, 255, 0.08), transparent 24%),
+        linear-gradient(180deg, #020202 0%, #000000 100%);
+      color: var(--text);
+      font-family: "Inter", sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
 
-    .shape {
+    .parallax-bg {
       position: fixed;
+      inset: 0;
+      z-index: -2;
       pointer-events: none;
-      z-index: 0;
-      filter: blur(6px);
-      opacity: 0.7;
-    }
-    .shape.a {
-      width: 260px;
-      height: 260px;
-      border-radius: 50%;
-      left: -80px;
-      top: 12%;
-      background: radial-gradient(circle at 30% 30%, rgba(107, 231, 255, 0.4), transparent 70%);
-      animation: driftA 10s ease-in-out infinite alternate;
-    }
-    .shape.b {
-      width: 340px;
-      height: 340px;
-      border-radius: 50%;
-      right: -120px;
-      bottom: -60px;
-      background: radial-gradient(circle at 40% 40%, rgba(111, 255, 186, 0.35), transparent 72%);
-      animation: driftB 12s ease-in-out infinite alternate;
-    }
-    @keyframes driftA {
-      from { transform: translate(0, 0); }
-      to { transform: translate(14px, 20px); }
-    }
-    @keyframes driftB {
-      from { transform: translate(0, 0); }
-      to { transform: translate(-18px, -16px); }
+      overflow: hidden;
     }
 
-    .page {
-      position: relative;
-      z-index: 1;
-      max-width: 1080px;
-      margin: 0 auto;
-      padding: 26px 20px 42px;
+    .bg-array-wrap {
+      position: absolute;
+      display: grid;
+      gap: 2px;
+      opacity: 0.22;
+      transition: transform 0.1s linear;
     }
 
-    .top {
+    .bg-led {
+      width: 7px;
+      height: 5px;
+      border-radius: 1px;
+      background: rgba(0, 200, 255, 0.08);
+      transition: background 0.8s ease, box-shadow 0.8s ease, opacity 0.8s ease;
+    }
+
+    .bg-led.on {
+      background: var(--neon);
+      box-shadow: 0 0 12px rgba(0, 200, 255, 0.9);
+      opacity: 1;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: 64px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 36px;
+      gap: 24px;
+      padding: 0 32px;
+      background: rgba(0, 0, 0, 0.92);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(12px);
     }
-    .brand {
-      display: flex;
+
+    .nav-logo {
+      display: inline-flex;
       align-items: center;
       gap: 12px;
-    }
-    .logo-wrap {
-      width: 50px;
-      height: 50px;
-      border-radius: 14px;
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.06);
-      display: grid;
-      place-items: center;
-      overflow: hidden;
-    }
-    .logo-wrap img {
-      width: 40px;
-      height: 40px;
-      object-fit: contain;
-      filter: drop-shadow(0 8px 20px rgba(107, 231, 255, 0.36));
-    }
-    .brand h1 {
-      margin: 0;
-      font-family: "Sora", sans-serif;
+      color: var(--neon);
+      text-decoration: none;
+      font-family: "Orbitron", sans-serif;
+      font-size: 18px;
       font-weight: 800;
-      letter-spacing: 0.6px;
-      font-size: 22px;
+      letter-spacing: 3px;
+      text-shadow: var(--neon-glow);
     }
-    .cta-top {
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--text);
-      border-radius: 12px;
-      padding: 10px 14px;
-      font-size: 13px;
-      font-weight: 700;
+
+    .nav-logo img {
+      width: 34px;
+      height: 34px;
+      object-fit: contain;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 1.4px;
+      transition: color 0.18s ease;
+    }
+
+    .nav-links a:hover {
+      color: var(--neon);
+    }
+
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 142px;
+      height: 40px;
+      border: none;
+      border-radius: 6px;
+      background: var(--neon-dim);
+      color: var(--neon);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
       cursor: pointer;
-      transition: transform 0.15s ease, background 0.15s ease;
     }
-    .cta-top:hover {
+
+    .nav-cta:hover {
+      background: rgba(0, 200, 255, 0.18);
+      box-shadow: var(--neon-glow);
       transform: translateY(-1px);
-      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .page {
+      max-width: var(--page-w);
+      margin: 0 auto;
+      padding: 0 28px 120px;
+    }
+
+    section {
+      margin-top: 96px;
     }
 
     .hero {
+      padding: 92px 0 28px;
       display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 18px;
-      margin-bottom: 22px;
+      grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+      gap: 28px;
+      align-items: center;
     }
-    .hero-main {
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--card);
-      box-shadow: var(--shadow);
-      padding: 30px 28px;
+
+    .hero-copy {
+      max-width: 680px;
     }
-    .hero-main h2 {
-      margin: 0;
-      font-family: "Sora", sans-serif;
-      font-size: clamp(29px, 5vw, 52px);
-      line-height: 1.05;
-      letter-spacing: 0.5px;
+
+    .hero-label,
+    .sec-label {
+      color: var(--neon);
+      font-family: "Orbitron", sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      opacity: 0.72;
+      margin-bottom: 12px;
     }
-    .hero-main p {
-      margin: 16px 0 0;
-      color: var(--muted);
-      font-size: 17px;
-      line-height: 1.55;
-      max-width: 48ch;
+
+    .hero-wordmark {
+      color: var(--neon);
+      font-family: "Orbitron", sans-serif;
+      font-size: clamp(58px, 10vw, 96px);
+      font-weight: 900;
+      letter-spacing: 11px;
+      line-height: 0.95;
+      text-shadow: 0 0 14px rgba(0, 200, 255, 0.24);
     }
+
+    .hero-tagline {
+      margin-top: 18px;
+      color: var(--text-muted);
+      font-size: 13px;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+    }
+
+    .hero-desc {
+      margin-top: 24px;
+      max-width: 560px;
+      color: rgba(255, 255, 255, 0.66);
+      font-size: 15px;
+      line-height: 1.85;
+    }
+
     .hero-actions {
-      margin-top: 22px;
+      margin-top: 28px;
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 12px;
     }
 
     .btn {
-      border: 0;
-      border-radius: 12px;
-      padding: 12px 16px;
-      font-family: "Sora", sans-serif;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.3px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-width: 168px;
+      height: 44px;
+      padding: 0 18px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text);
+      font-family: "Inter", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      text-decoration: none;
       cursor: pointer;
-      transition: transform 0.15s ease, filter 0.15s ease;
+      transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
     }
+
     .btn:hover {
       transform: translateY(-1px);
-      filter: brightness(1.04);
     }
-    .btn.primary {
-      color: #011522;
-      background: linear-gradient(130deg, var(--accent), #76aeff);
+
+    .btn-primary {
+      background: var(--neon-dim);
+      color: var(--neon);
     }
-    .btn.secondary {
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.05);
+
+    .btn-primary:hover {
+      background: rgba(0, 200, 255, 0.18);
+      box-shadow: var(--neon-glow);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .btn-ghost:hover {
       color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
     }
 
     .hero-side {
+      background: rgba(8, 8, 8, 0.94);
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      background: rgba(255, 255, 255, 0.04);
-      padding: 22px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 14px;
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
     }
-    .stat {
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.04);
-      padding: 14px;
+
+    .hero-side::before {
+      content: "";
+      position: absolute;
+      inset: auto -50px -50px auto;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, rgba(0, 200, 255, 0.16), transparent 72%);
+      pointer-events: none;
     }
-    .stat .n {
-      font-family: "Sora", sans-serif;
-      font-size: 30px;
-      color: var(--accent-2);
-      line-height: 1;
+
+    .hero-panel-title {
+      color: var(--text-muted);
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 18px;
     }
-    .stat .t {
+
+    .hero-matrix {
+      display: grid;
+      gap: 16px;
+    }
+
+    .hero-metric {
+      padding: 14px 14px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+    }
+
+    .hero-metric-name {
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .hero-metric-value {
+      margin-top: 8px;
+      color: var(--neon);
+      font-family: "Orbitron", sans-serif;
+      font-size: 24px;
+      letter-spacing: 2px;
+    }
+
+    .hero-metric-copy {
       margin-top: 6px;
-      color: var(--muted);
+      color: var(--text-soft);
       font-size: 13px;
+    }
+
+    .sec-title {
+      padding-bottom: 16px;
+      color: var(--text);
+      font-family: "Orbitron", sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 2px;
     }
 
     .feature-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
-      margin-bottom: 24px;
-    }
-    .feature {
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      background: rgba(9, 16, 32, 0.78);
-      padding: 16px;
-    }
-    .feature h3 {
-      margin: 0 0 8px;
-      font-family: "Sora", sans-serif;
-      font-size: 17px;
-    }
-    .feature p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 14px;
-      line-height: 1.5;
+      gap: 18px;
     }
 
-    .join {
-      border: 1px solid var(--line);
+    .card {
+      background: var(--surface);
       border-radius: var(--radius);
-      background:
-        linear-gradient(140deg, rgba(107, 231, 255, 0.15), rgba(111, 255, 186, 0.08)),
-        rgba(9, 16, 31, 0.82);
-      box-shadow: var(--shadow);
-      padding: 22px 20px;
-      text-align: center;
+      border: 1px solid var(--line);
+      padding: 26px 24px;
+      position: relative;
+      overflow: hidden;
     }
-    .join h4 {
-      margin: 0;
-      font-family: "Sora", sans-serif;
-      font-size: clamp(22px, 4vw, 34px);
-      line-height: 1.1;
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0, 200, 255, 0.32), transparent);
+      opacity: 0.85;
     }
-    .join p {
-      margin: 10px auto 0;
-      color: var(--muted);
+
+    .feature-card h3 {
+      color: var(--text);
+      font-family: "Orbitron", sans-serif;
+      font-size: 18px;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+
+    .feature-card p {
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 14px;
+      line-height: 1.75;
+    }
+
+    .story-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.06fr) minmax(300px, 0.94fr);
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .story-copy p {
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 14px;
+      line-height: 1.8;
       max-width: 58ch;
-      font-size: 15px;
-      line-height: 1.5;
-    }
-    .join .btn {
-      margin-top: 16px;
-      min-width: 210px;
     }
 
-    .foot {
-      margin-top: 16px;
+    .story-copy p + p {
+      margin-top: 12px;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 11px;
+      border-radius: 999px;
+      background: var(--neon-dimmer);
+      color: var(--neon);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .interface-preview {
+      background: #050505;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .preview-bar {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 16px;
+      background: #030303;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .preview-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .preview-dots span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .preview-dots span:last-child {
+      background: rgba(0, 200, 255, 0.18);
+    }
+
+    .preview-title {
+      color: var(--neon);
+      font-family: "Orbitron", sans-serif;
+      font-size: 10px;
+      letter-spacing: 3px;
+    }
+
+    .preview-body {
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      min-height: 360px;
+    }
+
+    .preview-side {
+      padding: 14px 0;
+      background: #040404;
+      border-right: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .preview-side-label {
+      padding: 0 14px;
+      margin-bottom: 8px;
+      color: var(--text-muted);
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .preview-channel {
+      padding: 8px 14px;
+      color: rgba(255, 255, 255, 0.58);
+      font-size: 13px;
+    }
+
+    .preview-channel.active {
+      background: var(--neon-dim);
+      color: var(--neon);
+    }
+
+    .preview-main {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .preview-messages {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .preview-msg {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .preview-avatar {
+      width: 34px;
+      height: 34px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      background: var(--surface-2);
+      color: var(--neon);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .preview-msg-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 3px;
+    }
+
+    .preview-name {
+      color: var(--neon);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .preview-time {
+      color: var(--text-muted);
+      font-size: 10px;
+    }
+
+    .preview-text {
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .preview-input-row {
+      padding: 12px 16px 16px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .preview-input {
+      flex: 1;
+      height: 42px;
+      border-radius: 6px;
+      background: var(--surface-2);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .stat-card h3 {
+      color: var(--neon);
+      font-family: "Orbitron", sans-serif;
+      font-size: 26px;
+      letter-spacing: 2px;
+    }
+
+    .stat-card p {
+      margin-top: 8px;
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 13px;
+    }
+
+    .cta-card {
       text-align: center;
-      color: var(--muted);
-      font-size: 12px;
-      opacity: 0.9;
+      padding: 34px 28px;
+      background:
+        radial-gradient(circle at center top, rgba(0, 200, 255, 0.12), transparent 55%),
+        var(--surface);
     }
 
-    @media (max-width: 940px) {
-      .hero {
+    .cta-card p {
+      max-width: 600px;
+      margin: 16px auto 0;
+      color: rgba(255, 255, 255, 0.66);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .cta-card .btn {
+      margin-top: 22px;
+    }
+
+    footer {
+      margin-top: 120px;
+      padding: 26px 0 0;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      color: var(--text-muted);
+      font-size: 12px;
+      letter-spacing: 1px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .footer-wordmark {
+      color: var(--neon);
+      font-family: "Orbitron", sans-serif;
+      font-size: 14px;
+      letter-spacing: 4px;
+      text-shadow: var(--neon-glow);
+    }
+
+    @media (max-width: 980px) {
+      nav {
+        padding: 0 18px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .hero,
+      .story-grid {
         grid-template-columns: 1fr;
       }
-      .feature-grid {
+
+      .feature-grid,
+      .stat-grid {
         grid-template-columns: 1fr;
+      }
+
+      .preview-body {
+        grid-template-columns: 1fr;
+      }
+
+      .preview-side {
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      }
+    }
+
+    @media (max-width: 640px) {
+      nav {
+        height: auto;
+        flex-wrap: wrap;
+        padding: 12px 14px;
+      }
+
+      .page {
+        padding: 0 14px 72px;
+      }
+
+      .hero {
+        padding-top: 56px;
+      }
+
+      .hero-wordmark {
+        letter-spacing: 7px;
+      }
+
+      .hero-tagline {
+        letter-spacing: 3px;
+      }
+
+      .hero-actions,
+      .preview-input-row,
+      footer {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .btn,
+      .nav-cta {
+        width: 100%;
       }
     }
   </style>
 </head>
 <body>
-  <div class="shape a"></div>
-  <div class="shape b"></div>
+  <div class="parallax-bg" id="parallax-bg"></div>
+
+  <nav>
+    <a href="#top" class="nav-logo">
+      <img src="../wyvern_logo.png" alt="Wyvern logo" />
+      <span>WYVERN</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#spaces">Spaces</a></li>
+      <li><a href="#experience">Experience</a></li>
+      <li><a href="#preview">Preview</a></li>
+      <li><a href="#join">Join</a></li>
+    </ul>
+    <button id="goTopBtn" class="nav-cta" type="button">Open Wyvern</button>
+  </nav>
 
   <main class="page">
-    <header class="top">
-      <div class="brand">
-        <div class="logo-wrap">
-          <img src="../wyvern_logo_transparent.png" alt="Wyvern logo" />
-        </div>
-        <h1>WYVERN</h1>
-      </div>
-      <button id="goTopBtn" class="cta-top" type="button">Open Wyvern</button>
-    </header>
-
-    <section class="hero">
-      <article class="hero-main">
-        <h2>Where your people<br/>actually want to hang out.</h2>
-        <p>
-          Wyvern is built for every kind of community. Chat, share moments, and stay connected in a space that feels alive from the first message.
+    <section id="top" class="hero">
+      <div class="hero-copy">
+        <div class="hero-label">Modern Community Chat</div>
+        <div class="hero-wordmark">WYVERN</div>
+        <div class="hero-tagline">Chat. Connect. Conquer.</div>
+        <p class="hero-desc">
+          Wyvern gives communities, friend groups, and teams a sharper place to stay in sync. It is fast, focused, and built to feel electric the second you land.
         </p>
         <div class="hero-actions">
-          <button id="goHeroBtn" class="btn primary" type="button">Go to Wyvern</button>
-          <button id="learnBtn" class="btn secondary" type="button">See What’s New</button>
+          <button id="goHeroBtn" class="btn btn-primary" type="button">Go to Wyvern</button>
+          <button id="learnBtn" class="btn btn-ghost" type="button">See the Experience</button>
         </div>
-      </article>
+      </div>
 
       <aside class="hero-side">
-        <div class="stat">
-          <div class="n">Fast</div>
-          <div class="t">Start conversations instantly and keep them flowing.</div>
-        </div>
-        <div class="stat">
-          <div class="n">Clear</div>
-          <div class="t">Everything feels focused, simple, and easy to use.</div>
-        </div>
-        <div class="stat">
-          <div class="n">Yours</div>
-          <div class="t">Personalize your profile, spaces, and vibe.</div>
+        <div class="hero-panel-title">Live Signal</div>
+        <div class="hero-matrix">
+          <div class="hero-metric">
+            <div class="hero-metric-name">Instant Rooms</div>
+            <div class="hero-metric-value">FAST</div>
+            <div class="hero-metric-copy">Start conversations without digging through clutter.</div>
+          </div>
+          <div class="hero-metric">
+            <div class="hero-metric-name">Direct Contact</div>
+            <div class="hero-metric-value">CLEAR</div>
+            <div class="hero-metric-copy">Jump from public spaces to private chats with no friction.</div>
+          </div>
+          <div class="hero-metric">
+            <div class="hero-metric-name">Your Identity</div>
+            <div class="hero-metric-value">YOURS</div>
+            <div class="hero-metric-copy">Profiles, icons, and spaces that feel like they belong to you.</div>
+          </div>
         </div>
       </aside>
     </section>
 
-    <section class="feature-grid">
-      <article class="feature">
-        <h3>Servers & Spaces</h3>
-        <p>Create homes for your groups with channels for everything from quick check-ins to deep conversations.</p>
-      </article>
-      <article class="feature">
-        <h3>Direct Messages</h3>
-        <p>Jump into private chats with friends and teammates whenever you want one-on-one time.</p>
-      </article>
-      <article class="feature">
-        <h3>Share Moments</h3>
-        <p>Post photos, clips, and files in chat so your conversations stay rich and expressive.</p>
+    <section id="spaces">
+      <div class="sec-label">What You Can Do</div>
+      <h2 class="sec-title">Built For Real Communities</h2>
+      <div class="feature-grid">
+        <article class="card feature-card">
+          <h3>Servers & Spaces</h3>
+          <p>Create distinct homes for your people, with channels that keep every conversation exactly where it belongs.</p>
+        </article>
+        <article class="card feature-card">
+          <h3>Direct Messages</h3>
+          <p>Move from big community energy to quiet one-on-one conversations without losing the thread.</p>
+        </article>
+        <article class="card feature-card">
+          <h3>Media & Moments</h3>
+          <p>Drop images, files, clips, and updates straight into chat so your community stays expressive and alive.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="experience">
+      <div class="sec-label">Why It Feels Different</div>
+      <h2 class="sec-title">A Sharper, Calmer Experience</h2>
+      <div class="story-grid">
+        <article class="card story-copy">
+          <p>Wyvern is designed to feel immediate. The interface stays focused, the important actions stay close, and the atmosphere feels modern without getting in your way.</p>
+          <p>It works for big communities, private circles, project teams, creators, and anyone who wants chat to feel more intentional than noisy.</p>
+          <div class="badge-row">
+            <span class="badge">Profiles</span>
+            <span class="badge">Servers</span>
+            <span class="badge">DMs</span>
+            <span class="badge">File Sharing</span>
+            <span class="badge">Voice</span>
+          </div>
+        </article>
+
+        <article class="card interface-preview" id="preview">
+          <div class="preview-bar">
+            <div class="preview-dots"><span></span><span></span><span></span></div>
+            <div class="preview-title">WYVERN</div>
+            <div class="preview-title">LIVE</div>
+          </div>
+          <div class="preview-body">
+            <div class="preview-side">
+              <div class="preview-side-label">Channels</div>
+              <div class="preview-channel active"># general</div>
+              <div class="preview-channel"># updates</div>
+              <div class="preview-channel"># media</div>
+              <div class="preview-channel"># voice</div>
+              <div class="preview-side-label" style="margin-top: 16px;">Direct</div>
+              <div class="preview-channel">sayori</div>
+              <div class="preview-channel">phantom_zero</div>
+            </div>
+            <div class="preview-main">
+              <div class="preview-messages">
+                <div class="preview-msg">
+                  <div class="preview-avatar">WY</div>
+                  <div>
+                    <div class="preview-msg-head">
+                      <div class="preview-name">Wyvern HQ</div>
+                      <div class="preview-time">today at 12:04</div>
+                    </div>
+                    <div class="preview-text">Welcome in. Everything you need is one tap away, without the noise.</div>
+                  </div>
+                </div>
+                <div class="preview-msg">
+                  <div class="preview-avatar">SA</div>
+                  <div>
+                    <div class="preview-msg-head">
+                      <div class="preview-name">sayori</div>
+                      <div class="preview-time">today at 12:06</div>
+                    </div>
+                    <div class="preview-text">That is the point. It feels like a place people want to stay, not just a tool they tolerate.</div>
+                  </div>
+                </div>
+                <div class="preview-msg">
+                  <div class="preview-avatar">DM</div>
+                  <div>
+                    <div class="preview-msg-head">
+                      <div class="preview-name">direct</div>
+                      <div class="preview-time">today at 12:10</div>
+                    </div>
+                    <div class="preview-text">Jump from the crowd into a private conversation whenever you want.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="preview-input-row">
+                <div class="preview-input">Transmit to #general...</div>
+                <button id="goPreviewBtn" class="btn btn-primary" type="button">Open</button>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-label">Signal</div>
+      <h2 class="sec-title">What Wyvern Prioritizes</h2>
+      <div class="stat-grid">
+        <article class="card stat-card">
+          <h3>Speed</h3>
+          <p>Conversations open fast, messages land fast, and the interface stays responsive.</p>
+        </article>
+        <article class="card stat-card">
+          <h3>Clarity</h3>
+          <p>Servers, direct messages, settings, and directories are easy to understand at a glance.</p>
+        </article>
+        <article class="card stat-card">
+          <h3>Presence</h3>
+          <p>Your communities feel alive, with profiles, media, voice, and shared spaces that feel personal.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="join">
+      <article class="card cta-card">
+        <div class="sec-label">Ready</div>
+        <h2 class="sec-title">Bring Your People To Wyvern</h2>
+        <p>
+          Start a server, jump into direct messages, and build a place that feels like your own from the first conversation forward.
+        </p>
+        <button id="goJoinBtn" class="btn btn-primary" type="button">Go to Wyvern</button>
       </article>
     </section>
 
-    <section class="join">
-      <h4>Ready to jump in?</h4>
-      <p>
-        Bring your community to Wyvern and make every conversation feel like it belongs.
-      </p>
-      <button id="goJoinBtn" class="btn primary" type="button">Go to Wyvern</button>
-    </section>
-
-    <div class="foot">WYVERN</div>
+    <footer>
+      <span class="footer-wordmark">WYVERN</span>
+      <span>Chat for modern communities.</span>
+      <span>2026 Wyvern</span>
+    </footer>
   </main>
 
   <script>
-    // Set this to your live Wyvern URL.
     const WYVERN_URL = "https://greatest-cohen-jumping-warren.trycloudflare.com";
-
     const MIRROR_BASE = "/mirror";
     const MIRROR_PREFIXES = ["/api/", "/media/"];
 
     function normalizeUrl(input) {
-      try { return new URL(input, window.location.origin); } catch { return null; }
+      try {
+        return new URL(input, window.location.origin);
+      } catch {
+        return null;
+      }
     }
 
     function shouldMirror(urlObj) {
@@ -405,22 +941,71 @@
       window.location.href = WYVERN_URL;
     }
 
+    function buildParallaxBackground() {
+      const bg = document.getElementById("parallax-bg");
+      if (!bg) return;
+
+      const totalWidth = window.innerWidth;
+      const totalHeight = Math.max(document.documentElement.scrollHeight, window.innerHeight * 3);
+
+      for (let i = 0; i < 28; i++) {
+        const wrap = document.createElement("div");
+        wrap.className = "bg-array-wrap";
+
+        const cols = 3 + Math.floor(Math.random() * 5);
+        const rows = 2 + Math.floor(Math.random() * 4);
+        wrap.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+        wrap.style.top = `${Math.random() * totalHeight}px`;
+        wrap.style.left = `${Math.random() * Math.max(totalWidth - 100, 60)}px`;
+
+        const leds = [];
+        for (let j = 0; j < cols * rows; j++) {
+          const led = document.createElement("div");
+          led.className = "bg-led";
+          if (Math.random() < 0.08) led.classList.add("on");
+          wrap.appendChild(led);
+          leds.push(led);
+        }
+
+        bg.appendChild(wrap);
+
+        setInterval(() => {
+          const idx = Math.floor(Math.random() * leds.length);
+          leds[idx].classList.toggle("on");
+          if (leds[idx].classList.contains("on")) {
+            setTimeout(() => leds[idx].classList.remove("on"), 1800 + Math.random() * 2600);
+          }
+        }, 1400 + Math.random() * 3200);
+      }
+
+      window.addEventListener("scroll", () => {
+        bg.style.transform = `translateY(${-window.scrollY * 0.18}px)`;
+      });
+    }
+
     function init() {
       patchFetchMirror();
       patchXhrMirror();
+      buildParallaxBackground();
 
-      const goTopBtn = document.getElementById("goTopBtn");
-      const goHeroBtn = document.getElementById("goHeroBtn");
-      const goJoinBtn = document.getElementById("goJoinBtn");
+      const buttons = [
+        document.getElementById("goTopBtn"),
+        document.getElementById("goHeroBtn"),
+        document.getElementById("goPreviewBtn"),
+        document.getElementById("goJoinBtn"),
+      ].filter(Boolean);
+
+      for (const button of buttons) {
+        button.addEventListener("click", goToWyvern);
+      }
+
       const learnBtn = document.getElementById("learnBtn");
-
-      goTopBtn.addEventListener("click", goToWyvern);
-      goHeroBtn.addEventListener("click", goToWyvern);
-      goJoinBtn.addEventListener("click", goToWyvern);
-      learnBtn.addEventListener("click", () => {
-        const target = document.querySelector(".feature-grid");
-        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+      if (learnBtn) {
+        learnBtn.addEventListener("click", () => {
+          const target = document.getElementById("experience");
+          if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
     }
 
     init();
