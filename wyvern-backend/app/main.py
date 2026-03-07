@@ -22,6 +22,7 @@ INDEX_FILE = PROJECT_ROOT / "index.html"
 ADMIN_FILE = PROJECT_ROOT / "admin.html"
 LANDING_FILE = PROJECT_ROOT.parent / "landing" / "index.html"
 ROOT_LOGO_FILE = PROJECT_ROOT.parent / "wyvern_logo_transparent.png"
+ROOT_FULL_LOGO_FILE = PROJECT_ROOT.parent / "wyvern_logo.png"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 MEDIA_DIR = settings.resolve_media_dir(PROJECT_ROOT)
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
@@ -114,6 +115,13 @@ async def serve_root_logo() -> FileResponse:
     if not ROOT_LOGO_FILE.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="wyvern_logo_transparent.png not found")
     return FileResponse(ROOT_LOGO_FILE)
+
+
+@app.get("/wyvern_logo.png", include_in_schema=False)
+async def serve_root_full_logo() -> FileResponse:
+    if not ROOT_FULL_LOGO_FILE.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="wyvern_logo.png not found")
+    return FileResponse(ROOT_FULL_LOGO_FILE)
 
 
 def _get_proxy_request_headers(request: Request) -> dict[str, str]:
