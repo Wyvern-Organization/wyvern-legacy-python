@@ -41,10 +41,7 @@ html, body { height: 100%; overflow: hidden; }
 
 body {
   font-family: var(--font-body);
-  background:
-    radial-gradient(circle at 14% 10%, rgba(0,200,255,0.1), transparent 26%),
-    radial-gradient(circle at 86% 18%, rgba(0,200,255,0.07), transparent 22%),
-    linear-gradient(180deg, #020202 0%, #000000 100%);
+  background: var(--bg);
   color: var(--text);
   font-size: 14px;
   line-height: 1.5;
@@ -62,10 +59,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  background:
-    radial-gradient(ellipse 70% 60% at 20% 85%, rgba(0,200,255,0.22) 0%, transparent 72%),
-    radial-gradient(ellipse 55% 60% at 82% 15%, rgba(0,200,255,0.12) 0%, transparent 72%),
-    var(--bg-2);
+  background: var(--bg);
   transition: opacity 0.28s ease;
 }
 .boot-loader.hidden {
@@ -125,18 +119,13 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-2);
+  background: var(--bg);
   position: relative;
   overflow: hidden;
 }
 
 .auth-bg {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 60% 50% at 20% 80%, rgba(0,200,255,0.18) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 60% at 80% 20%, rgba(0,200,255,0.08) 0%, transparent 70%);
-  pointer-events: none;
+  display: none;
 }
 
 .auth-card {
@@ -545,7 +534,7 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 /* User panel */
 .user-panel {
   padding: 8px 10px;
-  background: rgba(0,0,0,0.2);
+  background: var(--bg);
   border-top: 1px solid rgba(255,255,255,0.05);
   display: flex;
   align-items: center;
@@ -603,7 +592,7 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--bg-3);
+  background: var(--bg);
   min-width: 0;
 }
 
@@ -739,14 +728,14 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   max-width: 520px;
   border-radius: 10px;
   border: 1px solid rgba(0,200,255,0.35);
-  background: linear-gradient(180deg, rgba(0,200,255,0.14), rgba(0,200,255,0.04));
+  background: #000000;
   padding: 10px 12px;
   cursor: pointer;
   transition: border-color var(--transition), background var(--transition), transform 0.12s ease;
 }
 .link-embed:hover {
   border-color: rgba(0,200,255,0.75);
-  background: linear-gradient(180deg, rgba(0,200,255,0.17), rgba(0,200,255,0.08));
+  background: #000000;
   transform: translateY(-1px);
 }
 .link-embed-host {
@@ -927,7 +916,7 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   flex-shrink: 0;
 }
 .chat-input-box {
-  background: var(--bg-4);
+  background: var(--bg);
   border: 1px solid transparent;
   border-radius: 12px;
   display: flex;
@@ -1050,7 +1039,7 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   z-index: 12000;
 }
 .push-note {
-  background: linear-gradient(180deg, rgba(0,200,255,0.2), rgba(28,28,28,0.95));
+  background: #000000;
   border: 1px solid rgba(0,200,255,0.4);
   border-radius: 10px;
   box-shadow: 0 12px 28px rgba(0,0,0,0.45);
@@ -1183,9 +1172,7 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 .settings-head {
   padding: 18px 20px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
-  background:
-    linear-gradient(180deg, rgba(0,200,255,0.22) 0%, rgba(0,200,255,0.03) 100%),
-    var(--bg);
+  background: #000000;
 }
 .settings-title {
   font-family: var(--font-head);
@@ -1403,7 +1390,7 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 .directory-head {
   padding: 16px 18px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
-  background: linear-gradient(180deg, rgba(0,200,255,0.2), rgba(0,200,255,0.05));
+  background: #000000;
 }
 .directory-title {
   font-family: var(--font-head);
@@ -1570,7 +1557,7 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 .voice-hero {
   border: 1px solid rgba(0,200,255,0.32);
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(0,200,255,0.15), rgba(0,200,255,0.04));
+  background: #000000;
   padding: 16px 14px;
 }
 .voice-hero-title {

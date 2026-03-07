@@ -48,10 +48,7 @@
 
     body {
       min-height: 100vh;
-      background:
-        radial-gradient(circle at 16% 14%, rgba(0, 200, 255, 0.14), transparent 30%),
-        radial-gradient(circle at 88% 20%, rgba(0, 200, 255, 0.08), transparent 24%),
-        linear-gradient(180deg, #020202 0%, #000000 100%);
+      background: var(--bg);
       color: var(--text);
       font-family: "Inter", sans-serif;
       font-size: 15px;
@@ -61,11 +58,7 @@
     }
 
     .parallax-bg {
-      position: fixed;
-      inset: 0;
-      z-index: -2;
-      pointer-events: none;
-      overflow: hidden;
+      display: none;
     }
 
     .bg-array-wrap {
@@ -296,7 +289,7 @@
       width: 220px;
       height: 220px;
       border-radius: 50%;
-      background: radial-gradient(circle at center, rgba(0, 200, 255, 0.16), transparent 72%);
+      background: none;
       pointer-events: none;
     }
 
@@ -427,7 +420,7 @@
     }
 
     .interface-preview {
-      background: #050505;
+      background: #000000;
       border-radius: 8px;
       overflow: hidden;
       border: 1px solid rgba(255, 255, 255, 0.06);
@@ -440,7 +433,7 @@
       justify-content: space-between;
       gap: 16px;
       padding: 0 16px;
-      background: #030303;
+      background: #000000;
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
 
@@ -475,7 +468,7 @@
 
     .preview-side {
       padding: 14px 0;
-      background: #040404;
+      background: #000000;
       border-right: 1px solid rgba(255, 255, 255, 0.04);
     }
 
@@ -503,6 +496,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      background: #000000;
     }
 
     .preview-messages {
@@ -567,7 +561,7 @@
       flex: 1;
       height: 42px;
       border-radius: 6px;
-      background: var(--surface-2);
+      background: #000000;
       color: var(--text);
       display: flex;
       align-items: center;
@@ -598,9 +592,7 @@
     .cta-card {
       text-align: center;
       padding: 34px 28px;
-      background:
-        radial-gradient(circle at center top, rgba(0, 200, 255, 0.12), transparent 55%),
-        var(--surface);
+      background: #000000;
     }
 
     .cta-card p {
