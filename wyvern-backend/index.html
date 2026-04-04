@@ -102,6 +102,44 @@ body {
 /* ── Button Reset ── */
 button { cursor: pointer; border: none; background: none; color: inherit; font-family: inherit; font-size: inherit; }
 
+.ui-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+.ui-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ui-icon.is-solid svg {
+  stroke: none;
+  fill: currentColor;
+}
+.icon-with-text,
+.icon-with-count {
+  display: inline-flex;
+  align-items: center;
+}
+.icon-with-text {
+  gap: 8px;
+}
+.icon-with-count {
+  gap: 6px;
+}
+.icon-count {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
 /* ── Input Reset ── */
 input, textarea {
   font-family: var(--font-body);
@@ -397,7 +435,6 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   justify-content: center;
   cursor: pointer;
   color: var(--text-muted);
-  font-size: 20px;
   transition: all var(--transition);
   flex-shrink: 0;
 }
@@ -405,6 +442,10 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   border-color: var(--green);
   color: var(--green);
   border-radius: 14px;
+}
+.server-pill-add .ui-icon {
+  width: 20px;
+  height: 20px;
 }
 
 /* DM icon */
@@ -487,10 +528,13 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  font-size: 16px;
   border-radius: 4px;
 }
 .ch-category .cat-plus:hover { color: var(--text); background: var(--bg-4); }
+.ch-category .cat-plus .ui-icon {
+  width: 14px;
+  height: 14px;
+}
 
 .ch-item {
   margin: 1px 6px;
@@ -507,11 +551,17 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 .ch-item:hover { background: var(--bg-4); color: var(--text-2); }
 .ch-item.active { background: rgba(0,200,255,0.25); color: var(--text); }
 .ch-item .ch-hash {
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   width: 18px;
-  text-align: center;
+  height: 18px;
   color: inherit;
+}
+.ch-item .ch-hash .ui-icon {
+  width: 16px;
+  height: 16px;
 }
 .ch-item .ch-name {
   flex: 1;
@@ -581,11 +631,14 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   width: 28px; height: 28px;
   border-radius: 6px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px;
   color: var(--text-muted);
   transition: background var(--transition), color var(--transition);
 }
 .panel-btn:hover { background: var(--bg-4); color: var(--text); }
+.panel-btn .ui-icon {
+  width: 16px;
+  height: 16px;
+}
 
 /* ── Main Chat ── */
 .chat-main {
@@ -605,7 +658,18 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   gap: 10px;
   flex-shrink: 0;
 }
-.chat-topbar .ch-icon { font-size: 18px; color: var(--text-muted); }
+.chat-topbar .ch-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+.chat-topbar .ch-icon .ui-icon {
+  width: 18px;
+  height: 18px;
+}
 .chat-topbar h3 {
   font-family: var(--font-head);
   font-size: 13px;
@@ -627,11 +691,14 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   width: 32px; height: 32px;
   border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 15px;
   color: var(--text-muted);
   transition: background var(--transition), color var(--transition);
 }
 .topbar-btn:hover { background: var(--bg-4); color: var(--text); }
+.topbar-btn .ui-icon {
+  width: 18px;
+  height: 18px;
+}
 
 /* ── Messages ── */
 .messages-scroll {
@@ -833,11 +900,14 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   width: 28px; height: 28px;
   border-radius: 6px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 13px;
   background: var(--bg-4);
   border: 1px solid var(--bg-5);
   color: var(--text-muted);
   transition: background var(--transition), color var(--transition);
+}
+.act-btn .ui-icon {
+  width: 16px;
+  height: 16px;
 }
 .act-btn:hover { background: var(--bg-5); color: var(--text); }
 .act-btn.danger:hover { background: rgba(231,76,60,0.2); color: var(--red); }
@@ -866,11 +936,18 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   border: 1px solid var(--bg-5);
   border-radius: 20px;
   font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text-muted);
   cursor: pointer;
   transition: all var(--transition);
 }
 .load-more-btn:hover { background: var(--bg-5); color: var(--text); }
+.load-more-btn .ui-icon {
+  width: 14px;
+  height: 14px;
+}
 
 .empty-channel {
   flex: 1;
@@ -882,7 +959,17 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   gap: 10px;
   font-size: 14px;
 }
-.empty-channel .empty-icon { font-size: 48px; }
+.empty-channel .empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+}
+.empty-channel .empty-icon .ui-icon {
+  width: 48px;
+  height: 48px;
+}
 .empty-channel h4 { font-family: var(--font-head); font-size: 14px; font-weight: 700; color: var(--text-2); }
 
 /* Typing */
@@ -929,11 +1016,17 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 .input-icon-btn {
   padding: 10px 4px;
   color: var(--text-muted);
-  font-size: 17px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   transition: color var(--transition);
   flex-shrink: 0;
 }
 .input-icon-btn:hover { color: var(--hover); }
+.input-icon-btn .ui-icon {
+  width: 18px;
+  height: 18px;
+}
 .chat-textarea {
   flex: 1;
   background: none;
@@ -951,7 +1044,9 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 .send-btn {
   padding: 8px;
   color: var(--text-muted);
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 8px;
   transition: color var(--transition), background var(--transition);
   flex-shrink: 0;
@@ -959,6 +1054,10 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 }
 .send-btn:hover { color: var(--hover); background: rgba(0,200,255,0.1); }
 .send-btn.ready { color: var(--brand); }
+.send-btn .ui-icon {
+  width: 18px;
+  height: 18px;
+}
 
 /* ── Member Sidebar ── */
 .member-sidebar {
@@ -1084,6 +1183,9 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   z-index: 1000;
   animation: fadeIn 0.15s ease;
 }
+.modal-overlay[hidden] {
+  display: none !important;
+}
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal {
   background: var(--bg);
@@ -1135,6 +1237,88 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   transition: background var(--transition);
 }
 .btn-confirm:hover { background: var(--brand-dim); }
+
+.changelog-modal {
+  width: min(860px, calc(100vw - 32px));
+  max-height: min(84vh, 920px);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.changelog-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+}
+.changelog-modal-title {
+  font-family: var(--font-head);
+  font-size: 14px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+.changelog-modal-body {
+  padding: 22px;
+  overflow: auto;
+  color: var(--text-2);
+  line-height: 1.8;
+}
+.changelog-modal-body > * + * {
+  margin-top: 14px;
+}
+.changelog-modal-body h1,
+.changelog-modal-body h2,
+.changelog-modal-body h3 {
+  font-family: var(--font-head);
+  color: var(--text);
+  line-height: 1.2;
+}
+.changelog-modal-body h1 { font-size: 24px; }
+.changelog-modal-body h2 { font-size: 18px; margin-top: 20px; }
+.changelog-modal-body h3 { font-size: 15px; margin-top: 16px; }
+.changelog-modal-body p { margin: 0; }
+.changelog-modal-body ul,
+.changelog-modal-body ol {
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+}
+.changelog-modal-body li::marker { color: var(--brand); }
+.changelog-modal-body a {
+  color: var(--brand);
+  text-decoration: none;
+}
+.changelog-modal-body a:hover { text-decoration: underline; }
+.changelog-modal-body code {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.06);
+}
+.changelog-modal-body pre {
+  overflow-x: auto;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--bg-2);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.changelog-modal-body blockquote {
+  margin: 0;
+  padding: 12px 16px;
+  border-left: 2px solid var(--brand);
+  background: rgba(0,200,255,0.05);
+  color: var(--text-2);
+}
+.changelog-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
 
 .link-open-modal {
   width: min(520px, calc(100vw - 28px));
@@ -1541,7 +1725,18 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   gap: 14px;
   color: var(--text-muted);
 }
-.no-channel .nc-icon { font-size: 64px; opacity: 0.3; }
+.no-channel .nc-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  opacity: 0.3;
+}
+.no-channel .nc-icon .ui-icon {
+  width: 64px;
+  height: 64px;
+}
 .no-channel h3 { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--text-2); }
 .no-channel p { font-size: 13px; }
 
@@ -1778,6 +1973,18 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
     <img class="boot-loader-logo" src="/static/wyvern-logo.png" alt="Wyvern" />
     <div class="boot-loader-spinner"></div>
     <div class="boot-loader-text">Loading Wyvern</div>
+  </div>
+  <div id="changelog-overlay" class="modal-overlay" hidden>
+    <div class="modal changelog-modal" role="dialog" aria-modal="true" aria-labelledby="changelog-modal-title">
+      <div class="changelog-modal-header">
+        <div id="changelog-modal-title" class="changelog-modal-title">Changelog</div>
+        <button id="closeChangelogBtn" class="btn-ghost" type="button">Close</button>
+      </div>
+      <div class="changelog-modal-body">
+        <div id="changelog-status">Loading the latest release notes...</div>
+        <div id="changelog-content" hidden></div>
+      </div>
+    </div>
   </div>
   <div id="app"></div>
   <script>
@@ -2130,6 +2337,54 @@ function el(tag, attrs = {}, ...children) {
     else e.appendChild(c);
   }
   return e;
+}
+
+const HERO_ICON_PATHS = {
+  plus: '<path d="M12 4.5v15m7.5-7.5h-15" />',
+  hashtag: '<path d="M5.25 8.25h13.5M5.25 15.75h13.5M8.25 3.75 6.75 20.25M17.25 3.75 15.75 20.25" />',
+  paperClip: '<path d="m18.375 12.75-6.34 6.34a4.5 4.5 0 1 1-6.364-6.364l8.47-8.47a3 3 0 1 1 4.243 4.243l-8.485 8.485a1.5 1.5 0 1 1-2.121-2.122l6.364-6.364" />',
+  paperAirplane: '<path d="M6 12 3.27 3.64a.75.75 0 0 1 .98-.92l16.5 6.75a.75.75 0 0 1 0 1.39l-16.5 6.75a.75.75 0 0 1-.98-.92L6 12Zm0 0h7.5" />',
+  arrowUp: '<path d="m4.5 12.75 7.5-7.5 7.5 7.5" /><path d="M12 5.25v13.5" />',
+  faceSmile: '<path d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M9.75 9.75h.008v.008H9.75V9.75Zm4.5 0h.008v.008h-.008V9.75Z" /><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />',
+  pencilSquare: '<path d="M16.862 4.487a2.25 2.25 0 1 1 3.182 3.182L8.25 19.463 3 21l1.537-5.25L16.862 4.487Z" /><path d="M19.5 13.5V21H3V4.5h7.5" />',
+  trash: '<path d="M14.74 9 14.394 18m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673A2.25 2.25 0 0 1 15.916 21.75H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0V4.875c0-1.243-1.007-2.25-2.25-2.25h-3c-1.243 0-2.25 1.007-2.25 2.25V5.25m7.5 0h-7.5" />',
+  arrowRightOnRectangle: '<path d="M8.25 7.5V6A2.25 2.25 0 0 1 10.5 3.75h8.25A2.25 2.25 0 0 1 21 6v12a2.25 2.25 0 0 1-2.25 2.25H10.5A2.25 2.25 0 0 1 8.25 18v-1.5" /><path d="M15 12H3.75m0 0 3.75-3.75M3.75 12l3.75 3.75" />',
+  arrowLeftOnRectangle: '<path d="M15.75 7.5V6A2.25 2.25 0 0 0 13.5 3.75H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25h8.25A2.25 2.25 0 0 0 15.75 18v-1.5" /><path d="M9 12h11.25m0 0-3.75-3.75M20.25 12l-3.75 3.75" />',
+  link: '<path d="M13.19 8.688a4.5 4.5 0 0 1 6.364 6.364l-1.757 1.757a4.5 4.5 0 0 1-6.364 0m1.757-7.07a4.5 4.5 0 0 0-6.364 0L5.07 11.496a4.5 4.5 0 0 0 0 6.364 4.5 4.5 0 0 0 6.364 0l1.757-1.757" />',
+  cog: '<path d="M10.5 6h3m-7.5 6h12m-9 6h6" /><path d="M18 6a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM9 12a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm9 6a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />',
+  userGroup: '<path d="M18 18.72a8.94 8.94 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198v-.75c0-1.665-.87-3.13-2.182-3.957m0 0A5.97 5.97 0 0 0 12 13.5a5.97 5.97 0 0 0-3.818 1.372m7.636 0A5.97 5.97 0 0 1 12 15.75a5.97 5.97 0 0 1-3.818-1.378m0 0a3 3 0 0 0-4.681 2.72A8.94 8.94 0 0 0 6 18.72m9.818-9.348a3.75 3.75 0 1 0-7.636 0 3.75 3.75 0 0 0 7.636 0Zm3.182-1.372a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />',
+  squares: '<path d="M3.75 3.75h6.75v6.75H3.75V3.75Zm9.75 0h6.75v6.75H13.5V3.75Zm0 9.75h6.75v6.75H13.5V13.5Zm-9.75 0h6.75v6.75H3.75V13.5Z" />',
+  speakerWave: '<path d="M19.114 8.181a6 6 0 0 1 0 7.638M15.75 9.75a3.75 3.75 0 0 1 0 4.5" /><path d="M11.25 5.25 7.5 8.25H4.5a.75.75 0 0 0-.75.75v6a.75.75 0 0 0 .75.75h3l3.75 3V5.25Z" />',
+  chatBubble: '<path d="M7.5 8.25h5.25m-5.25 3h8.25m-8.25 3h3.75" /><path d="M6.75 21a8.966 8.966 0 0 1-4.122-.994.75.75 0 0 1-.378-.663V6.75A2.25 2.25 0 0 1 4.5 4.5h15A2.25 2.25 0 0 1 21.75 6.75v8.25a2.25 2.25 0 0 1-2.25 2.25H9.31l-2.934 3.26A.75.75 0 0 1 6.75 21Z" />',
+  phone: '<path d="M2.25 4.5A2.25 2.25 0 0 1 4.5 2.25h1.372c.52 0 .973.353 1.103.856l.811 3.162a1.125 1.125 0 0 1-.417 1.164l-1.293.97a11.036 11.036 0 0 0 5.52 5.52l.97-1.293a1.125 1.125 0 0 1 1.164-.417l3.162.81c.503.13.856.584.856 1.104V19.5a2.25 2.25 0 0 1-2.25 2.25h-1.5C7.425 21.75 2.25 16.575 2.25 10.5V4.5Z" />',
+  phoneXMark: '<path d="M15.75 9.75 18 12m0 0 2.25 2.25M18 12l2.25-2.25M18 12l-2.25 2.25" /><path d="M2.25 4.5A2.25 2.25 0 0 1 4.5 2.25h1.372c.52 0 .973.353 1.103.856l.811 3.162a1.125 1.125 0 0 1-.417 1.164l-1.293.97a11.036 11.036 0 0 0 5.52 5.52l.97-1.293a1.125 1.125 0 0 1 1.164-.417l1.518.39M17.25 19.5a2.25 2.25 0 0 1-2.25 2.25h-1.5C7.425 21.75 2.25 16.575 2.25 10.5V4.5" />',
+  magnifyingGlass: '<path d="m21 21-4.35-4.35m0 0A7.5 7.5 0 1 0 6 6a7.5 7.5 0 0 0 10.65 10.65Z" />'
+};
+
+function heroIcon(name, { size = 18, className = '', solid = false } = {}) {
+  const paths = HERO_ICON_PATHS[name];
+  const classes = ['ui-icon'];
+  if (solid) classes.push('is-solid');
+  if (className) classes.push(className);
+
+  const iconEl = el('span', {
+    class: classes.join(' '),
+    html: `<svg viewBox="0 0 24 24" aria-hidden="true">${paths || ''}</svg>`,
+  });
+  iconEl.style.width = `${size}px`;
+  iconEl.style.height = `${size}px`;
+  return iconEl;
+}
+
+function setIconCount(button, iconName, count = 0, size = 18) {
+  button.replaceChildren(
+    el(
+      'span',
+      { class: count ? 'icon-with-count' : '' },
+      heroIcon(iconName, { size }),
+      count ? el('span', { class: 'icon-count' }, String(count)) : null,
+    ),
+  );
 }
 
 function qs(sel, parent = document) { return parent.querySelector(sel); }
@@ -2535,6 +2790,162 @@ function showLinkOpenOptions(rawUrl = '') {
   overlay.addEventListener('click', (event) => {
     if (event.target === overlay) overlay.remove();
   });
+}
+
+function escapeMarkdownHtml(text) {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatMarkdownInline(text) {
+  return escapeMarkdownHtml(text)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+}
+
+function markdownToHtml(markdown) {
+  const lines = String(markdown || '').replace(/\r\n/g, '\n').split('\n');
+  const html = [];
+  let inList = null;
+  let inCode = false;
+  let codeLines = [];
+  let paragraphLines = [];
+
+  const flushParagraph = () => {
+    if (!paragraphLines.length) return;
+    html.push(`<p>${formatMarkdownInline(paragraphLines.join(' '))}</p>`);
+    paragraphLines = [];
+  };
+
+  const closeList = () => {
+    if (!inList) return;
+    html.push(`</${inList}>`);
+    inList = null;
+  };
+
+  const flushCode = () => {
+    html.push(`<pre><code>${escapeMarkdownHtml(codeLines.join('\n'))}</code></pre>`);
+    codeLines = [];
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+
+    if (line.startsWith('```')) {
+      if (inCode) {
+        flushCode();
+        inCode = false;
+      } else {
+        flushParagraph();
+        closeList();
+        inCode = true;
+      }
+      continue;
+    }
+
+    if (inCode) {
+      codeLines.push(rawLine);
+      continue;
+    }
+
+    if (!line.trim()) {
+      flushParagraph();
+      closeList();
+      continue;
+    }
+
+    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+    if (headingMatch) {
+      flushParagraph();
+      closeList();
+      const level = headingMatch[1].length;
+      html.push(`<h${level}>${formatMarkdownInline(headingMatch[2])}</h${level}>`);
+      continue;
+    }
+
+    const bulletMatch = line.match(/^[-*]\s+(.+)$/);
+    if (bulletMatch) {
+      flushParagraph();
+      if (inList !== 'ul') {
+        closeList();
+        html.push('<ul>');
+        inList = 'ul';
+      }
+      html.push(`<li>${formatMarkdownInline(bulletMatch[1])}</li>`);
+      continue;
+    }
+
+    const orderedMatch = line.match(/^\d+\.\s+(.+)$/);
+    if (orderedMatch) {
+      flushParagraph();
+      if (inList !== 'ol') {
+        closeList();
+        html.push('<ol>');
+        inList = 'ol';
+      }
+      html.push(`<li>${formatMarkdownInline(orderedMatch[1])}</li>`);
+      continue;
+    }
+
+    const quoteMatch = line.match(/^>\s+(.+)$/);
+    if (quoteMatch) {
+      flushParagraph();
+      closeList();
+      html.push(`<blockquote>${formatMarkdownInline(quoteMatch[1])}</blockquote>`);
+      continue;
+    }
+
+    paragraphLines.push(line);
+  }
+
+  flushParagraph();
+  closeList();
+  if (inCode && codeLines.length) {
+    flushCode();
+  }
+
+  return html.join('\n');
+}
+
+let changelogLoaded = false;
+
+async function loadChangelog() {
+  if (changelogLoaded) return;
+  changelogLoaded = true;
+
+  const status = document.getElementById('changelog-status');
+  const content = document.getElementById('changelog-content');
+  if (!status || !content) return;
+
+  try {
+    const res = await fetch(base('/changelog.md'), { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Changelog request failed with ${res.status}`);
+    const markdown = await res.text();
+    content.innerHTML = markdownToHtml(markdown);
+    content.hidden = false;
+    status.hidden = true;
+  } catch (error) {
+    status.textContent = 'The changelog could not be loaded right now.';
+    content.hidden = true;
+    console.error('Failed to load changelog:', error);
+  }
+}
+
+function showChangelogModal() {
+  const overlay = document.getElementById('changelog-overlay');
+  if (!overlay) return;
+  overlay.hidden = false;
+}
+
+function hideChangelogModal() {
+  const overlay = document.getElementById('changelog-overlay');
+  if (!overlay) return;
+  overlay.hidden = true;
 }
 
 function showSettingsModal({
@@ -3054,7 +3465,12 @@ function MessageList(channelId) {
     root.innerHTML = '';
 
     if (hasMore) {
-      const loadBtn = el('button', { class: 'load-more-btn', onClick: () => load(false) }, '↑ Load earlier messages');
+      const loadBtn = el(
+        'button',
+        { class: 'load-more-btn', onClick: () => load(false) },
+        heroIcon('arrowUp', { size: 14 }),
+        el('span', {}, 'Load earlier messages'),
+      );
       root.appendChild(loadBtn);
     }
 
@@ -3077,7 +3493,7 @@ function MessageList(channelId) {
 
   function empty() {
     return el('div', { class: 'empty-channel' },
-      el('div', { class: 'empty-icon' }, '🐉'),
+      el('div', { class: 'empty-icon' }, heroIcon('chatBubble', { size: 48 })),
       el('h4', {}, 'No messages yet'),
       el('p', {}, 'Be the first to say something!')
     );
@@ -3167,7 +3583,12 @@ function MessageList(channelId) {
               event.stopPropagation();
               showLinkOpenOptions(att.url);
             },
-          }, '📎 ' + (att.filename || 'Attachment'));
+          },
+            el('span', { class: 'icon-with-text' },
+              heroIcon('paperClip', { size: 16 }),
+              el('span', {}, att.filename || 'Attachment'),
+            )
+          );
         }
         const attEl = el('div', { class: 'msg-attachment' }, contentNode);
         body.appendChild(attEl);
@@ -3201,16 +3622,16 @@ function MessageList(channelId) {
 
     // Actions (on hover)
     const actions = el('div', { class: 'msg-actions' });
-    const emojiBtn = el('button', { class: 'act-btn', title: 'React', onClick: () => quickReact(msg) }, '😊');
+    const emojiBtn = el('button', { class: 'act-btn', title: 'React', onClick: () => quickReact(msg) }, heroIcon('faceSmile', { size: 16 }));
     actions.appendChild(emojiBtn);
 
     if (isMe) {
-      const editBtn = el('button', { class: 'act-btn', title: 'Edit', onClick: () => startEdit(msg, body) }, '✏️');
+      const editBtn = el('button', { class: 'act-btn', title: 'Edit', onClick: () => startEdit(msg, body) }, heroIcon('pencilSquare', { size: 16 }));
       const delBtn  = el('button', { class: 'act-btn danger', title: 'Delete', onClick: async () => {
         await msgApi.delete(msg.id);
         msgList = msgList.filter(m => m.id !== msg.id);
         renderAll();
-      }}, '🗑️');
+      }}, heroIcon('trash', { size: 16 }));
       actions.append(editBtn, delBtn);
     }
 
@@ -4194,7 +4615,7 @@ function AppView() {
           await selectServer(srv.id);
         },
       })
-    }, '+');
+    }, heroIcon('plus', { size: 20 }));
     iconSidebar.appendChild(addBtn);
 
     const joinBtn = el('div', {
@@ -4210,7 +4631,7 @@ function AppView() {
           toast(err?.message || 'Failed to join server', 'error');
         }
       }
-    }, '↩');
+    }, heroIcon('arrowRightOnRectangle', { size: 20 }));
     iconSidebar.appendChild(joinBtn);
   }
 
@@ -4254,7 +4675,7 @@ function AppView() {
             toast(err?.message || 'Failed to create invite link', 'error');
           }
         }
-      }, '🔗');
+      }, heroIcon('link', { size: 18 }));
       rightActions.appendChild(inviteBtn);
 
       const editServerBtn = el('button', {
@@ -4294,7 +4715,7 @@ function AppView() {
             },
           });
         }
-      }, '⚙');
+      }, heroIcon('cog', { size: 18 }));
       rightActions.appendChild(editServerBtn);
     }
     rightActions.appendChild(el('button', {
@@ -4311,7 +4732,7 @@ function AppView() {
           },
         });
       }
-    }, '👤'));
+    }, heroIcon('userGroup', { size: 18 })));
     rightActions.appendChild(el('button', {
       class: 'topbar-btn',
       title: 'Server Directory',
@@ -4324,7 +4745,7 @@ function AppView() {
           },
         });
       }
-    }, '🧭'));
+    }, heroIcon('squares', { size: 18 })));
     rightActions.appendChild(wsDot(wsConnected));
 
     const nameBar = el('div', { class: 'server-name-bar' }, titleWrap, rightActions);
@@ -4359,12 +4780,14 @@ function AppView() {
               } catch (e) { toast(e?.message || 'Failed', 'error'); }
             }
           });
-        }}, '+'
-      ));
+        }}, heroIcon('plus', { size: 14 }))
+      );
       scroll.appendChild(catEl);
 
       for (const ch of catChans) {
-        const icon = ch.type === 'voice' ? '🔊' : '#';
+        const icon = ch.type === 'voice'
+          ? heroIcon('speakerWave', { size: 16 })
+          : heroIcon('hashtag', { size: 16 });
         const item = el('div', {
           class: `ch-item${ch.id === activeChannelId ? ' active' : ''}`,
           onClick: () => selectChannel(ch.id)
@@ -4391,7 +4814,7 @@ function AppView() {
           } catch {}
         }
       })},
-        el('span', { class: 'ch-hash' }, '+'),
+        el('span', { class: 'ch-hash' }, heroIcon('plus', { size: 16 })),
         el('span', { class: 'ch-name' }, 'Create a channel')
       );
       scroll.appendChild(addFirst);
@@ -4417,7 +4840,7 @@ function AppView() {
             },
           });
         }
-      }, '👤'),
+      }, heroIcon('userGroup', { size: 18 })),
       el('button', {
         class: 'topbar-btn',
         title: 'Server Directory',
@@ -4429,7 +4852,7 @@ function AppView() {
             },
           });
         }
-      }, '🧭')
+      }, heroIcon('squares', { size: 18 }))
     );
     const nameBar = el('div', { class: 'server-name-bar' }, el('h2', {}, 'Direct Messages'), dmActions);
     chanSidebar.appendChild(nameBar);
@@ -4452,7 +4875,7 @@ function AppView() {
         toast(e?.message || 'User not found', 'error');
       }
     }},
-      el('span', { class: 'ch-hash' }, '+'),
+      el('span', { class: 'ch-hash' }, heroIcon('plus', { size: 16 })),
       el('span', { class: 'ch-name' }, 'New Message')
     );
     list.appendChild(newDm);
@@ -4544,14 +4967,14 @@ function AppView() {
           renderChanSidebar();
         },
       });
-    }}, '✎');
+    }}, heroIcon('pencilSquare', { size: 16 }));
 
     const logoutBtn = el('button', { class: 'panel-btn', title: 'Sign Out', onClick: async () => {
       await leaveVoiceChannel(true);
       await auth.logout();
       socket?.disconnect();
       store.set({ user: null, isAuthed: false, view: 'auth' });
-    }}, '⏏');
+    }}, heroIcon('arrowLeftOnRectangle', { size: 16 }));
 
     panel.append(av, info, editBtn, logoutBtn);
     parent.appendChild(panel);
@@ -4620,7 +5043,7 @@ function AppView() {
 
     if (!activeChannelId) {
       chatMain.appendChild(el('div', { class: 'no-channel' },
-        el('div', { class: 'nc-icon' }, '🐉'),
+        el('div', { class: 'nc-icon' }, heroIcon('chatBubble', { size: 64 })),
         el('h3', {}, 'Select a channel'),
         el('p', {}, 'Choose a channel from the sidebar to start chatting')
       ));
@@ -4643,18 +5066,22 @@ function AppView() {
             if (voiceActive) await leaveVoiceChannel(true);
             else await joinVoiceChannel(activeChannelId);
           },
-        }, voiceActive ? '📞' : '🎙️')
+        }, voiceActive ? heroIcon('phoneXMark', { size: 18 }) : heroIcon('phone', { size: 18 }))
       );
     }
     topActions.append(
-      el('button', { class: 'topbar-btn', title: 'Members' }, '👥'),
-      el('button', { class: 'topbar-btn', title: 'Search' }, '🔍')
+      el('button', { class: 'topbar-btn', title: 'Members' }, heroIcon('userGroup', { size: 18 })),
+      el('button', { class: 'topbar-btn', title: 'Search' }, heroIcon('magnifyingGlass', { size: 18 }))
     );
 
     // Topbar
     const topbar = el('div', { class: 'chat-topbar' });
     topbar.append(
-      el('span', { class: 'ch-icon' }, isDm ? '💬' : (isVoice ? '🔊' : '#')),
+      el('span', { class: 'ch-icon' },
+        isDm
+          ? heroIcon('chatBubble', { size: 18 })
+          : (isVoice ? heroIcon('speakerWave', { size: 18 }) : heroIcon('hashtag', { size: 18 }))
+      ),
       el('h3', {}, isDm ? (dmLabel || 'Direct Message') : (channel?.name || 'channel')),
       el('span', { class: 'topbar-desc' }, channel?.description || (isVoice ? 'Voice Channel' : (isDm ? 'Direct Message' : 'Text Channel'))),
       topActions
@@ -4706,7 +5133,7 @@ function AppView() {
     });
     document.body.appendChild(fileInput);
 
-    const attachBtn = el('button', { class: 'input-icon-btn', title: 'Attach file', onClick: () => fileInput.click() }, '📎');
+    const attachBtn = el('button', { class: 'input-icon-btn', title: 'Attach file', onClick: () => fileInput.click() });
 
     const textarea = document.createElement('textarea');
     textarea.className = 'chat-textarea';
@@ -4725,7 +5152,7 @@ function AppView() {
       }
     });
 
-    const sendBtn = el('button', { class: 'send-btn', title: 'Send', onClick: send }, '➤');
+    const sendBtn = el('button', { class: 'send-btn', title: 'Send', onClick: send }, heroIcon('paperAirplane', { size: 18 }));
 
     textarea.addEventListener('input', () => {
       updateAttachmentBadge();
@@ -4735,7 +5162,7 @@ function AppView() {
     area.append(fileInput, box);
 
     function updateAttachmentBadge() {
-      attachBtn.textContent = pendingAttachments.length ? `📎 ${pendingAttachments.length}` : '📎';
+      setIconCount(attachBtn, 'paperClip', pendingAttachments.length, 18);
       attachBtn.title = pendingAttachments.length
         ? `Attached files: ${pendingAttachments.length}`
         : 'Attach file';
@@ -4828,6 +5255,22 @@ function maybeHideBootLoader() {
   setTimeout(() => bootLoader.remove(), 320);
 }
 
+function wireChangelogModal() {
+  const overlay = document.getElementById('changelog-overlay');
+  const closeBtn = document.getElementById('closeChangelogBtn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', hideChangelogModal);
+  }
+  if (overlay) {
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) hideChangelogModal();
+    });
+  }
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') hideChangelogModal();
+  });
+}
+
 window.addEventListener('load', () => {
   pageResourcesLoaded = true;
   maybeHideBootLoader();
@@ -4882,6 +5325,9 @@ async function bootstrap() {
   } finally {
     appBootstrapped = true;
     maybeHideBootLoader();
+    wireChangelogModal();
+    showChangelogModal();
+    void loadChangelog();
   }
 }
 

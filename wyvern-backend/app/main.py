@@ -21,6 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INDEX_FILE = PROJECT_ROOT / "index.html"
 ADMIN_FILE = PROJECT_ROOT / "admin.html"
 LANDING_FILE = PROJECT_ROOT.parent / "landing" / "index.html"
+CHANGELOG_FILE = PROJECT_ROOT / "changelog.md"
 ROOT_LOGO_FILE = PROJECT_ROOT.parent / "wyvern_logo_transparent.png"
 ROOT_FULL_LOGO_FILE = PROJECT_ROOT.parent / "wyvern_logo.png"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -108,6 +109,13 @@ async def serve_landing() -> FileResponse:
     if not LANDING_FILE.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="landing/index.html not found")
     return FileResponse(LANDING_FILE)
+
+
+@app.get("/changelog.md", include_in_schema=False)
+async def serve_changelog() -> FileResponse:
+    if not CHANGELOG_FILE.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="changelog.md not found")
+    return FileResponse(CHANGELOG_FILE)
 
 
 @app.get("/wyvern_logo_transparent.png", include_in_schema=False)
@@ -205,3 +213,9 @@ async def unhandled_exception_handler(_: Request, exc: Exception) -> JSONRespons
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content=error_response(code="INTERNAL_ERROR", message="Unexpected server error", details=str(exc)),
     )
+
+# Run
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host=settings.host, port=settings.port)
