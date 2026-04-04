@@ -228,6 +228,61 @@
       gap: 12px;
     }
 
+    .launch-help {
+      margin-top: 12px;
+      color: rgba(255, 255, 255, 0.58);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .launch-help a {
+      color: var(--neon);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(0, 200, 255, 0.45);
+      transition: color 0.18s ease, border-color 0.18s ease;
+    }
+
+    .launch-help a:hover {
+      color: #8ae8ff;
+      border-color: currentColor;
+    }
+
+    .maintenance-banner {
+      position: sticky;
+      top: 0;
+      z-index: 220;
+      width: 100%;
+      margin: 0;
+      padding: 14px 16px;
+      border-radius: 0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #111111;
+      font-size: 13px;
+      line-height: 1.6;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
+    }
+
+    .maintenance-banner strong {
+      display: block;
+      margin-bottom: 4px;
+      font-family: "Orbitron", sans-serif;
+      font-size: 11px;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+    }
+
+    .maintenance-banner.level-low {
+      background: #f5d34f;
+    }
+
+    .maintenance-banner.level-medium {
+      background: #f59e0b;
+    }
+
+    .maintenance-banner.level-major {
+      background: #ef4444;
+    }
+
     .btn {
       display: inline-flex;
       align-items: center;
@@ -694,6 +749,10 @@
   </style>
 </head>
 <body>
+  <div id="maintenanceBanner" class="maintenance-banner" hidden>
+    <strong>Maintenance Notice</strong>
+    <span id="maintenanceDetails"></span>
+  </div>
   <div class="parallax-bg" id="parallax-bg"></div>
 
   <nav>
@@ -723,6 +782,9 @@
           <button id="goHeroBtn" class="btn btn-primary" type="button">Go to Wyvern</button>
           <button id="learnBtn" class="btn btn-ghost" type="button">See the Experience</button>
         </div>
+        <p class="launch-help">
+          Not working? Try clicking <a id="fallbackLink" href="https://1bf4f2lc-8009.use.devtunnels.ms/" target="_blank" rel="noreferrer noopener" title="Use this only if the main link does not work.">here</a>. This fallback can be janky, or it may load the page very slowly or feel unresponsive.
+        </p>
       </div>
 
       <aside class="hero-side">
@@ -880,7 +942,11 @@
   </main>
 
   <script>
-    const WYVERN_URL = "https://greatest-cohen-jumping-warren.trycloudflare.com";
+    const under_maintenance = true;
+    const level = "major"; // Allowed values: null, "low", "medium", "major"
+    const est_time = "";
+    const FALLBACK_URL = "https://1bf4f2lc-8009.use.devtunnels.ms/";
+    const WYVERN_URL = "https://ide-sports-brothers-perspectives.trycloudflare.com";
     const MIRROR_BASE = "/mirror";
     const MIRROR_PREFIXES = ["/api/", "/media/"];
 
@@ -931,6 +997,30 @@
         return;
       }
       window.location.href = WYVERN_URL;
+    }
+
+    function renderMaintenanceNotice() {
+      const banner = document.getElementById("maintenanceBanner");
+      const details = document.getElementById("maintenanceDetails");
+      if (!banner || !details) return;
+
+      const allowedLevels = new Set([null, "low", "medium", "major"]);
+      const safeLevel = allowedLevels.has(level) ? level : null;
+      banner.classList.remove("level-low", "level-medium", "level-major");
+
+      if (!under_maintenance) {
+        banner.hidden = true;
+        return;
+      }
+
+      if (safeLevel) {
+        banner.classList.add(`level-${safeLevel}`);
+      }
+
+      details.textContent = est_time
+        ? `Estimated time: ${est_time}. Use the fallback link below only if the main link does not work.`
+        : "Estimated time: unavailable. Use the fallback link below only if the main link does not work.";
+      banner.hidden = false;
     }
 
     function buildParallaxBackground() {
@@ -998,6 +1088,13 @@
           if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
         });
       }
+
+      const fallbackLink = document.getElementById("fallbackLink");
+      if (fallbackLink) {
+        fallbackLink.href = FALLBACK_URL;
+      }
+
+      renderMaintenanceNotice();
     }
 
     init();
