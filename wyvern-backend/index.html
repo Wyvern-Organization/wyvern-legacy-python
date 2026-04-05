@@ -2625,7 +2625,7 @@ const PRESENCE_OPTIONS = [
   { value: 'dnd', label: 'Do Not Disturb' },
 ];
 
-const GIFY_LIBRARY = [
+const GIPHY_LIBRARY = [
   { title: 'Excited', tags: ['hype', 'excited', 'celebrate'], url: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif' },
   { title: 'Mind Blown', tags: ['wow', 'mind blown', 'shock'], url: 'https://media.giphy.com/media/3oEduOnl5IHM5NRodO/giphy.gif' },
   { title: 'Dragon Fire', tags: ['dragon', 'fire', 'wyvern'], url: 'https://media.giphy.com/media/l41YvpiA9uMWw5AMU/giphy.gif' },
@@ -3087,7 +3087,7 @@ function showGifPicker({ onSelect }) {
   const overlay = el('div', { class: 'modal-overlay' });
   const modal = el('div', { class: 'modal directory-modal' });
   const head = el('div', { class: 'directory-head' },
-    el('div', { class: 'directory-title' }, 'GIFY'),
+    el('div', { class: 'directory-title' }, 'GIPHY'),
     el('div', { class: 'directory-subtitle' }, 'Pick a built-in GIF or paste a direct GIF URL.'),
   );
 
@@ -3134,7 +3134,7 @@ function showGifPicker({ onSelect }) {
 
   function renderGifCards() {
     const query = (search.value || '').trim().toLowerCase();
-    const items = GIFY_LIBRARY.filter((item) => {
+    const items = GIPHY_LIBRARY.filter((item) => {
       const haystack = `${item.title} ${(item.tags || []).join(' ')}`.toLowerCase();
       return !query || haystack.includes(query);
     });
@@ -6023,7 +6023,7 @@ function AppView() {
           toast('GIF added to your message', 'success');
         },
       }),
-    }, 'GIFY');
+    }, 'GIPHY');
 
     const textarea = document.createElement('textarea');
     textarea.className = 'chat-textarea';

@@ -8,8 +8,8 @@
     name="description"
     content="Wyvern is a next-generation space for communities, friend groups, teams, and anyone who wants chat to feel alive."
   />
-  <link rel="icon" type="image/png" href="./wyvern_logo_transparent.png" />
-  <link rel="apple-touch-icon" href="./wyvern_logo_transparent.png" />
+  <link rel="icon" type="image/png" href="/wyvern_logo_transparent.png" />
+  <link rel="apple-touch-icon" href="/wyvern_logo_transparent.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -752,14 +752,14 @@
 </head>
 <body>
   <div id="maintenanceBanner" class="maintenance-banner" hidden>
-    <strong>Maintenance Notice</strong>
+    <strong>Notice</strong>
     <span id="maintenanceDetails"></span>
   </div>
   <div class="parallax-bg" id="parallax-bg"></div>
 
   <nav>
     <a href="#top" class="nav-logo">
-      <img src="./wyvern_logo_transparent.png" alt="Wyvern logo" />
+      <img src="/wyvern_logo_transparent.png" alt="Wyvern logo" />
       <span>WYVERN</span>
     </a>
     <ul class="nav-links">
@@ -947,10 +947,14 @@
     const under_maintenance = false;
     const level = null; // Allowed values: null, "low", "medium", "major"
     const est_time = "";
+    const message = null;
     const FALLBACK_URL = "https://1bf4f2lc-8009.use.devtunnels.ms/";
     const WYVERN_URL = "https://ide-sports-brothers-perspectives.trycloudflare.com";
+    const WYVERN_EMBED_VERSION = "2026-04-05-giphy";
     const MIRROR_BASE = "/mirror";
-    const MIRROR_PREFIXES = ["/api/", "/media/"];
+    const LANDING_MIRROR_BASE = "/landing/mirror";
+    const LANDING_MIRROR_QUERY_PARAM = "mirror";
+    const MIRROR_BYPASS_PREFIXES = ["/landing", "/mirror", "/changelog.md", "/wyvern_logo.png", "/wyvern_logo_transparent.png"];
 
     function normalizeUrl(input) {
       try {
@@ -963,11 +967,92 @@
     function shouldMirror(urlObj) {
       if (!urlObj) return false;
       if (urlObj.origin !== window.location.origin) return false;
-      return MIRROR_PREFIXES.some((prefix) => urlObj.pathname.startsWith(prefix));
+      return !MIRROR_BYPASS_PREFIXES.some((prefix) => urlObj.pathname === prefix || urlObj.pathname.startsWith(`${prefix}/`));
     }
 
     function toMirrorUrl(urlObj) {
-      return `${window.location.origin}${MIRROR_BASE}${urlObj.pathname}${urlObj.search}`;
+      const path = urlObj.pathname === "/" ? "/" : urlObj.pathname;
+      return `${window.location.origin}${MIRROR_BASE}${path}${urlObj.search}`;
+    }
+
+    function buildMirrorOpenUrl(input) {
+      const urlObj = normalizeUrl(input);
+      if (!urlObj) return null;
+      const path = urlObj.pathname === "/" ? "/" : urlObj.pathname;
+      return `${window.location.origin}${MIRROR_BASE}${path}${urlObj.search}${urlObj.hash}`;
+    }
+
+    function buildLandingMirrorShellUrl(input) {
+      const urlObj = normalizeUrl(input);
+      if (!urlObj) return null;
+      const path = urlObj.pathname === "/" ? "/" : urlObj.pathname;
+      const shellPath = path === "/" ? `${LANDING_MIRROR_BASE}/` : `${LANDING_MIRROR_BASE}${path}`;
+      return `${window.location.origin}${shellPath}${urlObj.search}${urlObj.hash}`;
+    }
+
+    function buildPortableLandingMirrorShellUrl(input) {
+      const urlObj = normalizeUrl(input);
+      if (!urlObj) return null;
+
+      const shellUrl = new URL(window.location.href);
+      shellUrl.pathname = getLandingEntryPath();
+      shellUrl.search = "";
+      shellUrl.hash = "";
+      const path = urlObj.pathname === "/" ? "/" : urlObj.pathname;
+      shellUrl.searchParams.set(LANDING_MIRROR_QUERY_PARAM, `${path}${urlObj.search}${urlObj.hash}`);
+      return shellUrl.toString();
+    }
+
+    function getLandingEntryPath() {
+      const pathname = window.location.pathname || "/";
+      if (pathname === "/landing" || pathname === "/landing/" || pathname.startsWith("/landing/mirror")) {
+        return "/landing/";
+      }
+      return pathname;
+    }
+
+    function getConfiguredWyvernBaseUrl() {
+      return normalizeUrl(WYVERN_URL);
+    }
+
+    function parseMirrorTargetSpec(spec) {
+      if (!spec) return null;
+      try {
+        const target = /^https?:\/\//i.test(spec)
+          ? new URL(spec)
+          : new URL(spec.startsWith("/") || spec.startsWith("?") || spec.startsWith("#") ? spec : `/${spec}`, "https://wyvern.local");
+        return {
+          path: target.pathname || "/",
+          search: target.search || "",
+          hash: target.hash || "",
+        };
+      } catch {
+        return null;
+      }
+    }
+
+    function buildConfiguredWyvernTargetUrl(target) {
+      const baseUrl = getConfiguredWyvernBaseUrl();
+      if (!baseUrl || !target) return null;
+
+      const url = new URL(baseUrl.toString());
+      const basePath = url.pathname && url.pathname !== "/" ? url.pathname.replace(/\/$/, "") : "";
+      const targetPath = target.path && target.path !== "/" ? target.path : "";
+      url.pathname = `${basePath}${targetPath}` || "/";
+      url.search = target.search || "";
+      url.hash = target.hash || "";
+      url.searchParams.set("_landing_embed_v", WYVERN_EMBED_VERSION);
+      return url.toString();
+    }
+
+    function looksLikeWyvernAppDocument(html) {
+      const content = String(html || "");
+      return /API_PREFIX\s*=\s*['"]\/api\/v1['"]/.test(content) || /sessionStorage\.getItem\(['"]wy_access['"]\)/.test(content);
+    }
+
+    function canUseCurrentOriginApp(targetPath) {
+      if (!targetPath) return false;
+      return !MIRROR_BYPASS_PREFIXES.some((prefix) => targetPath === prefix || targetPath.startsWith(`${prefix}/`));
     }
 
     function patchFetchMirror() {
@@ -993,12 +1078,131 @@
       };
     }
 
+    function isLandingMirrorShell() {
+      const params = new URLSearchParams(window.location.search);
+      return params.has(LANDING_MIRROR_QUERY_PARAM) || window.location.pathname === "/landing/mirror" || window.location.pathname.startsWith("/landing/mirror/");
+    }
+
+    function isPathBasedLandingMirrorShell() {
+      return window.location.pathname === "/landing/mirror" || window.location.pathname.startsWith("/landing/mirror/");
+    }
+
+    function getLandingMirrorTarget() {
+      const params = new URLSearchParams(window.location.search);
+      const queryTarget = parseMirrorTargetSpec(params.get(LANDING_MIRROR_QUERY_PARAM));
+      if (queryTarget) return queryTarget;
+
+      const rawPath = window.location.pathname.replace(/^\/landing\/mirror/, "");
+      const path = !rawPath ? "/" : rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
+      return {
+        path,
+        search: window.location.search,
+        hash: window.location.hash,
+      };
+    }
+
+    async function fetchLandingMirrorDocument(target) {
+      const attempts = [];
+      if (canUseCurrentOriginApp(target.path)) {
+        attempts.push({
+          label: "current-origin app",
+          url: `${window.location.origin}${target.path}${target.search || ""}`,
+        });
+      }
+      if (isPathBasedLandingMirrorShell()) {
+        attempts.push({
+          label: "mirror",
+          url: `${window.location.origin}${MIRROR_BASE}${target.path}${target.search || ""}`,
+        });
+      }
+
+      const errors = [];
+      for (const attempt of attempts) {
+        try {
+          const response = await fetch(attempt.url, {
+            redirect: "follow",
+            headers: {
+              "X-Wyvern-Landing-Mirror": "1",
+            },
+          });
+          if (!response.ok) {
+            throw new Error(`${attempt.label} request failed with ${response.status}`);
+          }
+          const html = await response.text();
+          if (!looksLikeWyvernAppDocument(html)) {
+            throw new Error(`${attempt.label} returned a non-app document`);
+          }
+          return html;
+        } catch (error) {
+          errors.push(String(error?.message || `${attempt.label} request failed`));
+        }
+      }
+
+      throw new Error(errors.join(" | "));
+    }
+
+    function renderIframeMirrorShell(target) {
+      const iframeUrl = buildConfiguredWyvernTargetUrl(target) || FALLBACK_URL;
+      document.body.innerHTML = "";
+      document.body.style.margin = "0";
+      document.body.style.background = "#000";
+
+      const wrap = document.createElement("div");
+      wrap.style.cssText = "position:fixed;inset:0;background:#000;";
+
+      const frame = document.createElement("iframe");
+      frame.src = iframeUrl;
+      frame.title = "Wyvern";
+      frame.setAttribute("allow", "autoplay; camera; microphone; clipboard-read; clipboard-write; display-capture; fullscreen");
+      frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+      frame.style.cssText = "width:100%;height:100%;border:0;background:#000;display:block;";
+
+      wrap.appendChild(frame);
+      document.body.appendChild(wrap);
+      return iframeUrl;
+    }
+
+    async function bootLandingMirrorShell() {
+      const target = getLandingMirrorTarget();
+
+      document.body.innerHTML = `
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:Inter,sans-serif;">
+          <div style="text-align:center;">
+            <div style="font-family:Orbitron,sans-serif;letter-spacing:1px;font-size:12px;color:rgba(255,255,255,0.72);text-transform:uppercase;">Wyvern Mirror</div>
+            <div style="margin-top:10px;font-size:14px;color:rgba(255,255,255,0.88);">Loading mirrored app content...</div>
+          </div>
+        </div>
+      `;
+
+      try {
+        const html = await fetchLandingMirrorDocument(target);
+        document.open();
+        document.write(html);
+        document.close();
+      } catch (error) {
+        const iframeUrl = renderIframeMirrorShell(target);
+        if (!iframeUrl) {
+          document.body.innerHTML = `
+            <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:Inter,sans-serif;padding:24px;">
+              <div style="max-width:520px;text-align:center;">
+                <div style="font-family:Orbitron,sans-serif;letter-spacing:1px;font-size:12px;color:#00c8ff;text-transform:uppercase;">Mirror Unavailable</div>
+                <div style="margin-top:12px;font-size:15px;color:rgba(255,255,255,0.9);">The mirrored Wyvern app could not be loaded into this page.</div>
+                <div style="margin-top:8px;font-size:13px;color:rgba(255,255,255,0.58);">${String(error?.message || "Unknown error")}</div>
+                <div style="margin-top:18px;"><a href="${FALLBACK_URL}" target="_blank" rel="noreferrer noopener" style="color:#00c8ff;">Open the fallback link instead</a></div>
+              </div>
+            </div>
+          `;
+        }
+      }
+    }
+
     function goToWyvern() {
-      if (!/^https?:\/\//i.test(WYVERN_URL)) {
+      const mirrorLaunchUrl = buildPortableLandingMirrorShellUrl(WYVERN_URL) || buildLandingMirrorShellUrl(WYVERN_URL) || buildMirrorOpenUrl(WYVERN_URL);
+      if (!mirrorLaunchUrl) {
         alert("Please set WYVERN_URL first.");
         return;
       }
-      window.location.href = WYVERN_URL;
+      window.location.href = mirrorLaunchUrl;
     }
 
     function renderMaintenanceNotice() {
@@ -1019,9 +1223,11 @@
         banner.classList.add(`level-${safeLevel}`);
       }
 
-      details.textContent = est_time
-        ? `Estimated time: ${est_time}. Use the fallback link below only if the main link does not work.`
-        : "Estimated time: unavailable. Use the fallback link below only if the main link does not work.";
+      details.textContent = message
+        ? String(message)
+        : est_time
+          ? `Estimated time: ${est_time}. Use the fallback link below only if the main link does not work.`
+          : "Estimated time: unavailable. Use the fallback link below only if the main link does not work.";
       banner.hidden = false;
     }
 
@@ -1068,6 +1274,11 @@
     }
 
     function init() {
+      if (isLandingMirrorShell()) {
+        bootLandingMirrorShell();
+        return;
+      }
+
       patchFetchMirror();
       patchXhrMirror();
       buildParallaxBackground();

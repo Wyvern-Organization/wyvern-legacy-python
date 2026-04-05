@@ -4,7 +4,7 @@
 
 - Added message replies with inline reply previews in chat and a reply composer bar before send.
 - Added connected message rendering so consecutive posts from the same person merge into a cleaner stacked layout.
-- Added built-in `GIFY` support in the message bar with a picker for built-in GIFs and direct GIF URLs.
+- Added built-in `GIPHY` support in the message bar with a picker for built-in GIFs and direct GIF URLs.
 - Added a changeable user status control in the user panel for `Online`, `Idle`, and `Do Not Disturb`.
 - Added live speaking indicators inside voice chat so active speakers glow and animate while talking.
 - Extended message payloads to carry reply metadata and reaction summaries so chat updates stay consistent in history loads and real-time events.
@@ -16,6 +16,7 @@
 - Updated the landing maintenance banner to use a shorter `Notice` label and support a separate custom `message` field in addition to estimated time.
 - Refined chat replies so they render as connected message references above the author line, staying visually distinct from emoji reactions.
 - Fixed reaction updates so emoji reaction chips appear immediately from both direct clicks and live socket events.
+- Added a cache-busting embed version to the landing page's deployed iframe fallback so Netlify-style mirrors pick up the latest app UI changes reliably.
 
 ## 2026-04-04
 
