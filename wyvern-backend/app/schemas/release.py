@@ -8,6 +8,7 @@ class ReleaseFlagOut(BaseModel):
     description: str
     stable_enabled: bool
     edge_enabled: bool
+    channel_locked: bool = False
     updated_by_user_id: int | None = None
     updated_at: datetime
     last_promoted_at: datetime | None = None

@@ -413,6 +413,11 @@
       color: var(--warn);
     }
 
+    .release-pill.locked {
+      background: rgba(0, 200, 255, 0.14);
+      color: var(--neon);
+    }
+
     .release-audit-card {
       display: grid;
       gap: 8px;
@@ -1000,7 +1005,7 @@
         {
           label: 'Promotable Flags',
           value: String(status?.promotable_count || 0),
-          help: 'Flags where Stable and Edge currently differ.',
+          help: 'Flags where Stable and Edge currently differ and can be promoted.',
         },
         {
           label: 'Bridge Health',
@@ -1031,6 +1036,8 @@
     function renderReleaseFlags(status) {
       const flags = Array.isArray(status?.flags) ? status.flags : [];
       const resolved = status?.resolved_feature_flags || {};
+      const stableFlags = status?.stable_feature_flags || {};
+      const edgeFlags = status?.edge_feature_flags || {};
 
       if (!flags.length) {
         els.releaseFlags.innerHTML = '<div class="release-empty">No release flags are configured yet.</div>';
@@ -1039,10 +1046,11 @@
 
       const frag = document.createDocumentFragment();
       for (const flag of flags) {
-        const stable = !!flag.stable_enabled;
-        const edge = !!flag.edge_enabled;
+        const stable = !!stableFlags?.[flag.key];
+        const edge = !!edgeFlags?.[flag.key];
         const current = !!resolved?.[flag.key];
-        const pending = stable !== edge;
+        const locked = !!flag.channel_locked;
+        const pending = !locked && stable !== edge;
 
         const card = document.createElement('div');
         card.className = 'release-flag-card';
@@ -1065,7 +1073,7 @@
           makeReleasePill(`Stable ${stable ? 'On' : 'Off'}`, stable ? 'stable on' : 'stable off'),
           makeReleasePill(`Edge ${edge ? 'On' : 'Off'}`, edge ? 'edge on' : 'edge off'),
           makeReleasePill(`Resolved ${current ? 'On' : 'Off'}`, current ? 'on' : 'off'),
-          makeReleasePill(pending ? 'Needs Promotion' : 'Synced', pending ? 'pending' : 'stable')
+          makeReleasePill(locked ? 'Channel Locked' : (pending ? 'Needs Promotion' : 'Synced'), locked ? 'locked' : (pending ? 'pending' : 'stable'))
         );
 
         head.append(main, values);
@@ -1178,6 +1186,9 @@
         renderReleaseAudit(Array.isArray(audit?.items) ? audit.items : []);
 
         const promotable = Number(status?.promotable_count || 0);
+        const lockedCount = Array.isArray(status?.flags)
+          ? status.flags.filter((flag) => flag?.channel_locked).length
+          : 0;
         const onStable = String(status?.bridge_health?.node_role || '').toLowerCase() === 'main';
         const canPromote = onStable && promotable > 0;
         els.promoteBtn.disabled = !canPromote;
@@ -1185,7 +1196,9 @@
           !onStable
             ? 'Promotion is only available on Stable'
             : promotable > 0
-            ? `${promotable} flag${promotable === 1 ? '' : 's'} ready to promote`
+            ? `${promotable} flag${promotable === 1 ? '' : 's'} ready to promote${lockedCount > 0 ? ` • ${lockedCount} Edge-only flag${lockedCount === 1 ? '' : 's'} stay locked to Edge` : ''}`
+            : lockedCount > 0
+            ? `${lockedCount} Edge-only flag${lockedCount === 1 ? '' : 's'} stay locked to Edge`
             : 'Stable and Edge flags are currently aligned',
           canPromote ? 'warn' : (onStable ? 'ok' : 'warn')
         );

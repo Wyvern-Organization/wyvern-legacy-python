@@ -15,11 +15,19 @@ settings = get_settings()
 DEFAULT_RELEASE_FLAGS: list[dict[str, Any]] = [
     {
         "key": "edge_release_banner",
-        "description": "Show the Edge release banner inside the Edge app shell.",
+        "description": "Show the Edge release banner inside the Edge app shell. This flag is locked to the Edge channel.",
         "stable_enabled": False,
         "edge_enabled": True,
     },
 ]
+
+CHANNEL_LOCKED_RELEASE_FLAGS: set[str] = {
+    "edge_release_banner",
+}
+
+
+def is_channel_locked_release_flag(flag_key: str) -> bool:
+    return flag_key in CHANNEL_LOCKED_RELEASE_FLAGS
 
 
 def resolve_release_channel(mode: str | None) -> str:
@@ -31,7 +39,10 @@ def resolve_feature_flags(flags: list[ReleaseFlag], release_channel: str) -> dic
     channel = "edge" if release_channel == "edge" else "stable"
     resolved: dict[str, bool] = {}
     for flag in flags:
-        resolved[flag.key] = bool(flag.edge_enabled if channel == "edge" else flag.stable_enabled)
+        if is_channel_locked_release_flag(flag.key):
+            resolved[flag.key] = channel == "edge"
+        else:
+            resolved[flag.key] = bool(flag.edge_enabled if channel == "edge" else flag.stable_enabled)
     return resolved
 
 
@@ -41,9 +52,18 @@ def flag_to_out(flag: ReleaseFlag) -> ReleaseFlagOut:
         description=flag.description,
         stable_enabled=flag.stable_enabled,
         edge_enabled=flag.edge_enabled,
+        channel_locked=is_channel_locked_release_flag(flag.key),
         updated_by_user_id=flag.updated_by_user_id,
         updated_at=flag.updated_at,
         last_promoted_at=flag.last_promoted_at,
+    )
+
+
+def count_promotable_release_flags(flags: list[ReleaseFlag]) -> int:
+    return sum(
+        1
+        for flag in flags
+        if not is_channel_locked_release_flag(flag.key) and bool(flag.stable_enabled) != bool(flag.edge_enabled)
     )
 
 
@@ -87,7 +107,7 @@ async def build_release_status(db: AsyncSession, release_channel: str) -> Releas
     stable_flags = resolve_feature_flags(flags, "stable")
     edge_flags = resolve_feature_flags(flags, "edge")
     resolved = edge_flags if release_channel == "edge" else stable_flags
-    promotable_count = sum(1 for flag in flags if bool(flag.stable_enabled) != bool(flag.edge_enabled))
+    promotable_count = count_promotable_release_flags(flags)
     return ReleaseStatusOut(
         release_channel=release_channel,
         flags=[flag_to_out(flag) for flag in flags],
@@ -125,6 +145,8 @@ async def promote_release_flags(db: AsyncSession, promoted_by_user_id: int) -> R
     promoted_keys: list[str] = []
 
     for flag in flags:
+        if is_channel_locked_release_flag(flag.key):
+            continue
         if bool(flag.stable_enabled) == bool(flag.edge_enabled):
             continue
         flag.stable_enabled = bool(flag.edge_enabled)

@@ -6717,7 +6717,7 @@ function AppView() {
     );
     chatMain.appendChild(topbar);
 
-    if (currentClientMode() === 'edge' && featureFlagEnabled('edge_release_banner')) {
+    if (currentClientMode() === 'edge') {
       chatMain.appendChild(
         el('div', { class: 'edge-release-banner' },
           el('div', { class: 'edge-release-banner-copy' },

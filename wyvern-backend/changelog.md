@@ -16,6 +16,7 @@
 - Updated the landing maintenance banner to use a shorter `Notice` label and support a separate custom `message` field in addition to estimated time.
 - Refined chat replies so they render as connected message references above the author line, staying visually distinct from emoji reactions.
 - Fixed reaction updates so emoji reaction chips appear immediately from both direct clicks and live socket events.
+- Locked `edge_release_banner` to the Edge channel so Stable promotions cannot surface the banner to Stable users.
 - Added a cache-busting embed version to the landing page's deployed iframe fallback so Netlify-style mirrors pick up the latest app UI changes reliably.
 - Added a browser-local `Edge Mode` in `Settings -> For Devs` with a required `I understand` warning gate before users can enter the live development environment.
 - Wired the Edge Mode switch itself to the same enable/disable handler as the button so the toggle animates and responds to clicks instead of acting like a dead indicator.
