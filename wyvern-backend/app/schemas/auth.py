@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
@@ -21,6 +23,10 @@ class LogoutRequest(BaseModel):
     refresh_token: str
 
 
+class EdgeExchangeRequest(BaseModel):
+    grant: str
+
+
 class TokenPair(BaseModel):
     access_token: str
     refresh_token: str
@@ -38,3 +44,8 @@ class AuthUser(BaseModel):
     directory_opt_in: bool
     email: EmailStr
     avatar: str | None
+
+
+class EdgeHandoffOut(BaseModel):
+    grant: str
+    expires_at: datetime

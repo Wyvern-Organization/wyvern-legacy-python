@@ -4,9 +4,10 @@ from sqlalchemy import DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.sync import SyncMixin
 
 
-class DMParticipant(Base):
+class DMParticipant(SyncMixin, Base):
     __tablename__ = "dm_participants"
 
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id", ondelete="CASCADE"), primary_key=True)

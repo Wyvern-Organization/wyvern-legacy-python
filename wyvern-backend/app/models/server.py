@@ -4,9 +4,10 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.sync import SyncMixin
 
 
-class Server(Base):
+class Server(SyncMixin, Base):
     __tablename__ = "servers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

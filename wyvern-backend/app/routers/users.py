@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models import User
 from app.schemas.user import PresenceOut, PresenceUpdateRequest, UserOut
 from app.services.presence import presence_service
+from app.services.sync_bridge import bump_sync_version, enqueue_upsert_event
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
 
@@ -45,6 +46,8 @@ async def update_me(
         current_user.bio = payload.bio
     if "directory_opt_in" in provided and payload.directory_opt_in is not None:
         current_user.directory_opt_in = payload.directory_opt_in
+    base_sync_version = bump_sync_version(current_user)
+    await enqueue_upsert_event(db, "user", current_user, base_sync_version=base_sync_version)
     await db.commit()
     await db.refresh(current_user)
     return success_response(UserOut.model_validate(current_user).model_dump())

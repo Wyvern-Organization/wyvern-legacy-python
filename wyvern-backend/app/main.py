@@ -14,9 +14,10 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.database import engine
-from app.routers import admin, auth, channels, dms, messages, servers, uploads, users
+from app.routers import admin, auth, channels, dms, messages, runtime, servers, sync, uploads, users
 from app.services.pubsub import start_pubsub_listener, stop_pubsub_listener
 from app.services.redis_client import close_redis, init_redis
+from app.services.sync_bridge import start_sync_bridge_worker, stop_sync_bridge_worker
 from app.utils.responses import error_response, success_response
 from app.websocket.handlers import websocket_endpoint
 
@@ -76,7 +77,9 @@ async def lifespan(_: FastAPI):
     await ensure_database_schema_current()
     await init_redis()
     await start_pubsub_listener()
+    await start_sync_bridge_worker()
     yield
+    await stop_sync_bridge_worker()
     await stop_pubsub_listener()
     await close_redis()
 
@@ -93,18 +96,32 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount(settings.media_url_prefix, StaticFiles(directory=MEDIA_DIR), name="media")
 
-app.include_router(auth.router, prefix=settings.api_v1_prefix)
-app.include_router(users.router, prefix=settings.api_v1_prefix)
-app.include_router(servers.router, prefix=settings.api_v1_prefix)
-app.include_router(channels.router, prefix=settings.api_v1_prefix)
-app.include_router(messages.router, prefix=settings.api_v1_prefix)
-app.include_router(uploads.router, prefix=settings.api_v1_prefix)
-app.include_router(dms.router, prefix=settings.api_v1_prefix)
-app.include_router(admin.router, prefix=settings.api_v1_prefix)
+EDGE_API_V1_PREFIX = f"/edge{settings.api_v1_prefix}"
+BROWSER_API_ROUTERS = (
+    auth.router,
+    runtime.router,
+    users.router,
+    servers.router,
+    channels.router,
+    messages.router,
+    uploads.router,
+    dms.router,
+    admin.router,
+)
+
+for router in BROWSER_API_ROUTERS:
+    app.include_router(router, prefix=settings.api_v1_prefix)
+    app.include_router(router, prefix=EDGE_API_V1_PREFIX)
+app.include_router(sync.router)
 
 
 @app.websocket("/ws")
 async def websocket_route(websocket: WebSocket) -> None:
+    await websocket_endpoint(websocket)
+
+
+@app.websocket("/edge/ws")
+async def edge_websocket_route(websocket: WebSocket) -> None:
     await websocket_endpoint(websocket)
 
 
@@ -123,6 +140,18 @@ async def serve_index() -> FileResponse:
 @app.get("/invite/{code}", include_in_schema=False)
 async def serve_invite_index(code: str) -> FileResponse:
     _ = code
+    if not INDEX_FILE.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="index.html not found")
+    return FileResponse(INDEX_FILE)
+
+
+@app.get("/edge", include_in_schema=False)
+@app.get("/edge/", include_in_schema=False)
+@app.get("/edge/{path:path}", include_in_schema=False)
+async def serve_edge_index(path: str = "") -> FileResponse:
+    _ = path
+    if not settings.edge_mode_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edge Mode is not enabled")
     if not INDEX_FILE.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="index.html not found")
     return FileResponse(INDEX_FILE)

@@ -21,6 +21,7 @@ from app.schemas.message import (
 from app.services.access import ensure_channel_access, get_channel_or_404, get_message_or_404
 from app.services.pubsub import publish_channel_event
 from app.services.rate_limiter import rate_limiter
+from app.services.sync_bridge import bump_sync_version, enqueue_delete_event, enqueue_upsert_event
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
 
@@ -166,6 +167,8 @@ async def send_message(
         attachments=payload.attachments,
     )
     db.add(message)
+    await db.flush()
+    await enqueue_upsert_event(db, "message", message, base_sync_version=0)
     await db.commit()
     message = await _load_message_with_relations(db, message.id)
 
@@ -238,6 +241,8 @@ async def edit_message(
 
     message.content = payload.content
     message.edited_at = datetime.now(tz=UTC)
+    base_sync_version = bump_sync_version(message)
+    await enqueue_upsert_event(db, "message", message, base_sync_version=base_sync_version)
     await db.commit()
     message = await _load_message_with_relations(db, message.id)
 
@@ -274,6 +279,7 @@ async def delete_message(
     if not can_delete:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot delete this message")
 
+    await enqueue_delete_event(db, "message", message, base_sync_version=message.sync_version)
     await db.delete(message)
     await db.commit()
 
@@ -312,7 +318,10 @@ async def add_reaction(
         )
     )
     if existing.scalar_one_or_none() is None:
-        db.add(Reaction(message_id=message.id, user_id=current_user.id, emoji=payload.emoji))
+        reaction = Reaction(message_id=message.id, user_id=current_user.id, emoji=payload.emoji)
+        db.add(reaction)
+        await db.flush()
+        await enqueue_upsert_event(db, "reaction", reaction, base_sync_version=0)
         await db.commit()
 
     message = await _load_message_with_relations(db, message.id)
@@ -353,6 +362,7 @@ async def remove_reaction(
     )
     reaction = result.scalar_one_or_none()
     if reaction is not None:
+        await enqueue_delete_event(db, "reaction", reaction, base_sync_version=reaction.sync_version)
         await db.delete(reaction)
         await db.commit()
 

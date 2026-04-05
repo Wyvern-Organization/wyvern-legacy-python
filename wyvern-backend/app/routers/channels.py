@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models import Channel, ChannelType, MemberRole, ServerMember, User
 from app.schemas.channel import ChannelCreate, ChannelOut, ChannelUpdate
+from app.services.sync_bridge import bump_sync_version, enqueue_delete_event, enqueue_upsert_event
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
 
@@ -49,6 +50,8 @@ async def create_channel(
         created_by=current_user.id,
     )
     db.add(channel)
+    await db.flush()
+    await enqueue_upsert_event(db, "channel", channel, base_sync_version=0)
     await db.commit()
     await db.refresh(channel)
 
@@ -117,6 +120,8 @@ async def update_channel(
         channel.position = payload.position
     if payload.category is not None:
         channel.category = payload.category
+    base_sync_version = bump_sync_version(channel)
+    await enqueue_upsert_event(db, "channel", channel, base_sync_version=base_sync_version)
 
     await db.commit()
     await db.refresh(channel)
@@ -141,6 +146,7 @@ async def delete_channel(
     if not _can_manage_channels(membership.role):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
 
+    await enqueue_delete_event(db, "channel", channel, base_sync_version=channel.sync_version)
     await db.delete(channel)
     await db.commit()
     return success_response({"deleted": True})

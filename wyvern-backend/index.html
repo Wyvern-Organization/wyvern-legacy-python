@@ -736,6 +736,45 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.edge-release-banner {
+  margin: 0 16px 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,200,255,0.18);
+  background: linear-gradient(90deg, rgba(0,200,255,0.12), rgba(0,200,255,0.04));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.edge-release-banner-copy {
+  min-width: 0;
+}
+.edge-release-banner-title {
+  font-family: var(--font-head);
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--brand);
+  margin-bottom: 2px;
+}
+.edge-release-banner-text {
+  color: var(--text-2);
+  line-height: 1.55;
+}
+.edge-release-banner-pill {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0,200,255,0.16);
+  color: var(--brand);
+  font-family: var(--font-head);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
 .topbar-actions { margin-left: auto; display: flex; gap: 2px; }
 .topbar-btn {
   width: 32px; height: 32px;
@@ -1772,7 +1811,11 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   background: var(--bg-5);
   border: 1px solid rgba(255,255,255,0.16);
   position: relative;
+  cursor: pointer;
   transition: background var(--transition), border-color var(--transition);
+}
+.settings-switch:active {
+  transform: scale(0.98);
 }
 .settings-switch::after {
   content: '';
@@ -1791,6 +1834,218 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 }
 .settings-switch.on::after {
   transform: translateX(20px);
+}
+.settings-hub-modal {
+  width: min(860px, calc(100vw - 32px));
+  padding: 0;
+  overflow: hidden;
+}
+.settings-hub-shell {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: min(74vh, 680px);
+}
+.settings-hub-nav {
+  background: #02060a;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-hub-nav-title {
+  font-family: var(--font-head);
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 8px 8px;
+}
+.settings-hub-nav-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 10px;
+  color: var(--text-2);
+  border: 1px solid transparent;
+  background: transparent;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+.settings-hub-nav-btn:hover,
+.settings-hub-nav-btn.active {
+  background: rgba(0,200,255,0.12);
+  border-color: rgba(0,200,255,0.28);
+  color: var(--text);
+}
+.settings-hub-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.settings-hub-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: auto;
+}
+.settings-section-kicker {
+  font-family: var(--font-head);
+  font-size: 11px;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+.settings-card {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.02);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.settings-card-copy {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.settings-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.settings-meta-chip {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  padding: 11px 12px;
+}
+.settings-meta-label {
+  font-family: var(--font-head);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.settings-meta-value {
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 13px;
+  word-break: break-word;
+}
+.settings-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.settings-warning-copy {
+  color: #ffb5ad;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.edge-warning-modal {
+  width: min(560px, calc(100vw - 32px));
+}
+.edge-warning-title {
+  font-family: var(--font-head);
+  font-size: 13px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #ffcf9b;
+  margin-bottom: 12px;
+}
+.edge-warning-copy {
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-line;
+  margin-bottom: 18px;
+}
+.edge-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at top, rgba(0,200,255,0.08), transparent 40%), #020407;
+}
+.edge-shell-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(0,200,255,0.18);
+  background: rgba(0,0,0,0.76);
+  backdrop-filter: blur(10px);
+}
+.edge-shell-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.edge-shell-kicker {
+  font-family: var(--font-head);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #ffcf9b;
+}
+.edge-shell-title {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+}
+.edge-shell-subtitle {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.edge-shell-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.edge-shell-frame-wrap {
+  flex: 1;
+  padding: 16px;
+}
+.edge-shell-frame {
+  width: 100%;
+  height: calc(100vh - 92px);
+  border: 1px solid rgba(0,200,255,0.18);
+  border-radius: 18px;
+  background: #010204;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+}
+.edge-shell-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+.edge-shell-empty-card {
+  width: min(560px, 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.03);
+  padding: 24px;
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .settings-hub-shell {
+    grid-template-columns: 1fr;
+  }
+  .settings-hub-nav {
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .edge-shell-frame {
+    height: calc(100vh - 150px);
+  }
 }
 
 .directory-modal {
@@ -2317,32 +2572,111 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 // BACKEND_URL: set to a full URL (e.g. "https://api.wyvern.app") to point to
 // a remote server. Leave as null to use relative paths (same-origin hosting).
 //
-// Example: const BACKEND_URL = "https://api.wyvern.app";
+// Example: const BACKEND_URL_FALLBACK = "https://api.wyvern.app";
 //
 // ─── Config ───────────────────────────────────────────────────────────────────
 // Set BACKEND_URL to a full URL (e.g. "https://api.wyvern.app") to point to a
 // remote server. Leave as null to use relative paths (same origin).
-const BACKEND_URL = null;
+const BACKEND_URL_FALLBACK = null;
+const EDGE_MODE_STORAGE_KEY = 'wyvern_edge_mode_enabled';
+const DEFAULT_EDGE_PATH_PREFIX = '/edge';
+let runtimeConfig = {
+  backend_url: null,
+  client_mode: 'stable',
+  release_channel: 'stable',
+  node_role: 'main',
+  edge_mode_enabled: false,
+  sync_peer_api_url: null,
+  edge_mode_available: false,
+  bridge_schema_version: 1,
+  sync_enabled: false,
+  feature_flags: {},
+  bridge_health: null,
+};
 
-const API_PREFIX = '/api/v1';
 const WYVERN_LOGO_URL = '/static/wyvern-logo.png';
 const WYVERN_SECTION_LOGO_URL = '/wyvern_logo.png';
 
 function base(path) {
-  return BACKEND_URL ? `${BACKEND_URL}${path}` : path;
+  const backendUrl = BACKEND_URL_FALLBACK;
+  return backendUrl ? `${backendUrl}${path}` : path;
+}
+
+function apiPrefix() {
+  return currentClientMode() === 'edge' ? '/edge/api/v1' : '/api/v1';
+}
+
+function featureFlagEnabled(key) {
+  return !!runtimeConfig?.feature_flags?.[key];
+}
+
+function isEdgeModeEnabled() {
+  try { return localStorage.getItem(EDGE_MODE_STORAGE_KEY) === '1'; }
+  catch { return false; }
+}
+
+function setEdgeModeEnabled(enabled) {
+  try {
+    if (enabled) localStorage.setItem(EDGE_MODE_STORAGE_KEY, '1');
+    else localStorage.removeItem(EDGE_MODE_STORAGE_KEY);
+  } catch {}
+}
+
+function edgePathPrefix() {
+  return DEFAULT_EDGE_PATH_PREFIX;
+}
+
+function currentClientMode() {
+  const prefix = edgePathPrefix();
+  const pathname = window.location.pathname || '/';
+  return pathname === prefix || pathname.startsWith(`${prefix}/`) ? 'edge' : 'stable';
+}
+
+function websocketPath() {
+  return currentClientMode() === 'edge' ? '/edge/ws' : '/ws';
+}
+
+function edgeModeCanBoot() {
+  return runtimeConfig?.client_mode !== 'edge' && !!runtimeConfig?.edge_mode_available && !!runtimeConfig?.edge_mode_enabled;
+}
+
+function resolveAuthedView() {
+  if (runtimeConfig?.client_mode === 'edge') return 'app';
+  return isEdgeModeEnabled() && edgeModeCanBoot() ? 'edge-shell' : 'app';
+}
+
+async function loadRuntimeConfig() {
+  try {
+    const mode = currentClientMode();
+    const response = await fetch(`${apiPrefix()}/runtime-config?mode=${encodeURIComponent(mode)}`, { cache: 'no-store' });
+    if (!response.ok) return;
+    const payload = await response.json().catch(() => ({}));
+    const data = payload?.data || payload || {};
+    runtimeConfig = { ...runtimeConfig, ...data };
+    runtimeConfig.feature_flags = { ...(runtimeConfig.feature_flags || {}), ...(data.feature_flags || {}) };
+  } catch {}
 }
 
 // ─── Token Storage ────────────────────────────────────────────────────────────
+function tokenStorageKeys() {
+  if (currentClientMode() === 'edge') {
+    return { access: 'wy_edge_access', refresh: 'wy_edge_refresh' };
+  }
+  return { access: 'wy_access', refresh: 'wy_refresh' };
+}
+
 const token = {
-  get access() { return sessionStorage.getItem('wy_access'); },
-  get refresh() { return sessionStorage.getItem('wy_refresh'); },
+  get access() { return sessionStorage.getItem(tokenStorageKeys().access); },
+  get refresh() { return sessionStorage.getItem(tokenStorageKeys().refresh); },
   set(access, refresh) {
-    sessionStorage.setItem('wy_access', access);
-    if (refresh) sessionStorage.setItem('wy_refresh', refresh);
+    const keys = tokenStorageKeys();
+    sessionStorage.setItem(keys.access, access);
+    if (refresh) sessionStorage.setItem(keys.refresh, refresh);
   },
   clear() {
-    sessionStorage.removeItem('wy_access');
-    sessionStorage.removeItem('wy_refresh');
+    const keys = tokenStorageKeys();
+    sessionStorage.removeItem(keys.access);
+    sessionStorage.removeItem(keys.refresh);
   }
 };
 
@@ -2351,7 +2685,7 @@ async function req(method, path, body, opts = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (token.access) headers['Authorization'] = `Bearer ${token.access}`;
 
-  const res = await fetch(base(`${API_PREFIX}${path}`), {
+  const res = await fetch(base(`${apiPrefix()}${path}`), {
     method,
     headers: opts.noContentType ? { Authorization: headers.Authorization } : headers,
     body: body && !opts.noContentType ? JSON.stringify(body) : body,
@@ -2370,7 +2704,7 @@ async function req(method, path, body, opts = {}) {
 async function tryRefresh() {
   if (!token.refresh) return false;
   try {
-    const res = await fetch(base(`${API_PREFIX}/auth/refresh`), {
+    const res = await fetch(base(`${apiPrefix()}/auth/refresh`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: token.refresh }),
@@ -2404,6 +2738,8 @@ const auth = {
     }
     token.clear();
   },
+  edgeHandoff: () => req('POST', '/auth/edge-handoff'),
+  edgeExchange: (grant) => req('POST', '/auth/edge-exchange', { grant }),
 };
 
 // ─── Users ────────────────────────────────────────────────────────────────────
@@ -2528,10 +2864,11 @@ class WyvernSocket {
 
   connect() {
     if (!token.access) return;
-    const wsBase = BACKEND_URL
-      ? BACKEND_URL.replace(/^http/, 'ws')
+    const wsOrigin = BACKEND_URL_FALLBACK;
+    const wsBase = wsOrigin
+      ? wsOrigin.replace(/^http/, 'ws')
       : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
-    const url = `${wsBase}/ws?token=${token.access}`;
+    const url = `${wsBase}${websocketPath()}?token=${token.access}`;
     this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {
@@ -2595,6 +2932,7 @@ const store = new Store({
 
   // navigation
   view: 'auth', // 'auth' | 'app'
+  viewNonce: 0,
   activeServerId: null,
   activeChannelId: null,
   activeDmId: null,
@@ -2639,6 +2977,10 @@ const GIPHY_LIBRARY = [
 function toast(message, type = 'info', duration = 3000) {
   store.set({ toast: { message, type, id: Date.now() } });
   setTimeout(() => store.set({ toast: null }), duration);
+}
+
+function rerenderCurrentView() {
+  store.set({ viewNonce: Date.now() });
 }
 
 let pushStackEl = null;
@@ -3688,6 +4030,384 @@ function showSettingsModal({
   setBusyState();
 }
 
+const EDGE_MODE_WARNING_COPY = `You are enabling the live development environment.
+Changes are deployed instantly as code is written and saved.
+
+This is not stable. Things will break.
+Data and behavior are not guaranteed.
+
+If you do not fully understand these risks, do not enable this mode.`;
+
+function edgeTargetLabel() {
+  return `${window.location.origin}${edgePathPrefix()}/`;
+}
+
+function showEdgeModeWarning() {
+  return new Promise((resolve) => {
+    const overlay = el('div', { class: 'modal-overlay' });
+    const modal = el('div', { class: 'modal edge-warning-modal' });
+    const title = el('div', { class: 'edge-warning-title' }, '⚠️ Edge Mode (Developer Only)');
+    const copy = el('div', { class: 'edge-warning-copy' }, EDGE_MODE_WARNING_COPY);
+    const actions = el('div', { class: 'modal-actions' });
+
+    const close = (result) => {
+      overlay.remove();
+      resolve(!!result);
+    };
+
+    actions.append(
+      el('button', { class: 'btn-ghost', type: 'button', onClick: () => close(false) }, 'Cancel'),
+      el('button', { class: 'btn-confirm', type: 'button', onClick: () => close(true) }, 'I understand'),
+    );
+
+    modal.append(title, copy, actions);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) close(false);
+    });
+  });
+}
+
+function disableEdgeMode() {
+  setEdgeModeEnabled(false);
+  if (window.parent && window.parent !== window) {
+    token.clear();
+    window.parent.postMessage({ type: 'wyvern.edge.disable' }, window.location.origin);
+    return;
+  }
+  if (currentClientMode() === 'edge') {
+    window.location.replace('/');
+    return;
+  }
+  store.set({ view: 'app' });
+}
+
+function showSettingsHub(initialSection = 'account') {
+  const { user } = store.state;
+  if (!user) return;
+
+  const overlay = el('div', { class: 'modal-overlay' });
+  const modal = el('div', { class: 'modal settings-hub-modal' });
+  const shell = el('div', { class: 'settings-hub-shell' });
+  const nav = el('div', { class: 'settings-hub-nav' },
+    el('div', { class: 'settings-hub-nav-title' }, 'Settings')
+  );
+  const panel = el('div', { class: 'settings-hub-panel' });
+  const head = el('div', { class: 'settings-head' });
+  const title = el('div', { class: 'settings-title' }, 'User Settings');
+  const subtitle = el('div', { class: 'settings-subtitle' }, 'Manage your account and development preferences.');
+  const content = el('div', { class: 'settings-hub-content' });
+  const footer = el('div', { class: 'settings-actions' },
+    el('button', { class: 'btn-ghost', type: 'button', onClick: () => overlay.remove() }, 'Close')
+  );
+  let section = initialSection;
+
+  head.append(title, subtitle);
+  panel.append(head, content, footer);
+  shell.append(nav, panel);
+  modal.appendChild(shell);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const persistProfile = async ({ name, icon, details, toggle }) => {
+    const currentPresence = store.state.user?.presence || 'online';
+    const updatedBase = await users.update({
+      display_name: name || null,
+      bio: details || null,
+      avatar: icon,
+      directory_opt_in: !!toggle,
+    });
+    const updated = { ...(updatedBase || {}), presence: store.state.user?.presence || currentPresence };
+    if (updated?.id) userCache.set(updated.id, updated);
+
+    const nextMembers = {};
+    for (const [serverId, mems] of Object.entries(store.state.members || {})) {
+      nextMembers[serverId] = (mems || []).map((member) => {
+        if (member.user_id !== updated?.id) return member;
+        return { ...member, user: { ...(member.user || {}), ...(updated || {}) } };
+      });
+    }
+
+    const nextDmList = (store.state.dmList || []).map((dm) => {
+      if (!Array.isArray(dm?.participants)) return dm;
+      return {
+        ...dm,
+        participants: dm.participants.map((p) => p?.id === updated?.id ? { ...p, ...(updated || {}) } : p),
+      };
+    });
+
+    store.set({
+      user: updated || user,
+      members: nextMembers,
+      dmList: nextDmList,
+    });
+    rerenderCurrentView();
+    toast('Profile updated', 'success');
+  };
+
+  function renderAccountSection() {
+    let iconUrl = (store.state.user?.avatar || '').trim();
+    let toggleValue = !!store.state.user?.directory_opt_in;
+    let detailsValue = String(store.state.user?.bio || '');
+    let saving = false;
+    let uploading = false;
+    const fileInput = el('input', { type: 'file', accept: 'image/*' });
+    fileInput.style.display = 'none';
+
+    const preview = el('div', { class: 'settings-icon-preview' });
+    const nameInput = el('input', {
+      class: 'settings-input',
+      type: 'text',
+      value: store.state.user?.display_name || store.state.user?.username || '',
+      placeholder: store.state.user?.username || 'Display Name',
+      maxlength: '64',
+    });
+    const iconInput = el('input', {
+      class: 'settings-input',
+      type: 'text',
+      value: iconUrl,
+      placeholder: 'https://... or /media/...',
+    });
+    const bioInput = el('textarea', {
+      class: 'settings-textarea',
+      maxlength: '280',
+      placeholder: 'Tell people a bit about yourself.',
+    }, detailsValue);
+    bioInput.value = detailsValue;
+    const errorEl = el('div', { class: 'settings-error' });
+    errorEl.style.display = 'none';
+    const switchBtn = el('button', { class: `settings-switch${toggleValue ? ' on' : ''}`, type: 'button' });
+    const saveBtn = el('button', { class: 'btn-confirm', type: 'button' }, 'Save Profile');
+
+    const updatePreview = () => {
+      preview.innerHTML = '';
+      const currentName = (nameInput.value || store.state.user?.username || 'U').trim();
+      const fallback = currentName.slice(0, 2).toUpperCase() || 'U';
+      const src = (iconUrl || '').trim();
+      if (src) {
+        const img = el('img', { src, alt: currentName || 'Profile image' });
+        img.addEventListener('error', () => {
+          preview.innerHTML = '';
+          preview.appendChild(el('span', { class: 'settings-icon-fallback' }, fallback));
+        });
+        preview.appendChild(img);
+      } else {
+        preview.appendChild(el('span', { class: 'settings-icon-fallback' }, fallback));
+      }
+    };
+
+    const setBusy = () => {
+      saveBtn.disabled = saving || uploading;
+      switchBtn.disabled = saving || uploading;
+    };
+
+    const setError = (message) => {
+      errorEl.textContent = message || '';
+      errorEl.style.display = message ? 'block' : 'none';
+    };
+
+    iconInput.addEventListener('input', () => {
+      iconUrl = iconInput.value.trim();
+      updatePreview();
+    });
+    nameInput.addEventListener('input', updatePreview);
+    bioInput.addEventListener('input', () => {
+      detailsValue = bioInput.value;
+    });
+    switchBtn.addEventListener('click', () => {
+      if (saving || uploading) return;
+      toggleValue = !toggleValue;
+      switchBtn.classList.toggle('on', toggleValue);
+    });
+
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files?.[0];
+      fileInput.value = '';
+      if (!file) return;
+      setError('');
+      uploading = true;
+      setBusy();
+      try {
+        toast(`Uploading ${file.name}...`, 'info', 5000);
+        const result = await uploads.upload(file);
+        const uploadedUrl = (result?.url || result?.file_url || '').trim();
+        if (!uploadedUrl) throw new Error('Upload response missing URL');
+        iconUrl = uploadedUrl;
+        iconInput.value = uploadedUrl;
+        updatePreview();
+        toast('Image uploaded', 'success');
+      } catch (err) {
+        setError(err?.message || 'Failed to upload image');
+        toast(err?.message || 'Failed to upload image', 'error');
+      } finally {
+        uploading = false;
+        setBusy();
+      }
+    });
+
+    saveBtn.addEventListener('click', async () => {
+      if (saving || uploading) return;
+      saving = true;
+      setBusy();
+      setError('');
+      try {
+        await persistProfile({
+          name: nameInput.value.trim(),
+          icon: (iconUrl || '').trim() || null,
+          details: detailsValue.trim(),
+          toggle: toggleValue,
+        });
+      } catch (err) {
+        setError(err?.message || 'Failed to save profile');
+      } finally {
+        saving = false;
+        setBusy();
+      }
+    });
+
+    updatePreview();
+    content.append(
+      el('div', { class: 'settings-section-kicker' }, 'Account'),
+      el('div', { class: 'settings-card' },
+        el('div', { class: 'settings-icon-row' },
+          preview,
+          el('div', { class: 'settings-icon-meta' },
+            el('div', { class: 'settings-icon-label' }, 'Profile Picture'),
+            el('div', { class: 'settings-icon-help' }, 'Upload a PNG/JPG/WebP or paste a URL.'),
+            el('div', { class: 'settings-upload-actions' },
+              el('button', { class: 'btn-soft', type: 'button', onClick: () => fileInput.click() }, 'Upload Image'),
+              el('button', { class: 'btn-soft btn-danger-ghost', type: 'button', onClick: () => { iconUrl = ''; iconInput.value = ''; updatePreview(); } }, 'Clear')
+            ),
+            fileInput,
+          )
+        ),
+        el('div', { class: 'settings-field' }, el('label', {}, 'Display Name'), nameInput),
+        el('div', { class: 'settings-field' }, el('label', {}, 'Profile Picture URL'), iconInput),
+        el('div', { class: 'settings-field' }, el('label', {}, 'Bio'), bioInput),
+        el('div', { class: 'settings-toggle' },
+          el('div', { class: 'settings-toggle-main' },
+            el('div', { class: 'settings-toggle-title' }, 'Show In User Directory'),
+            el('div', { class: 'settings-toggle-help' }, 'People can discover you and start a DM from User Directory.')
+          ),
+          switchBtn
+        ),
+        errorEl,
+        el('div', { class: 'settings-inline-actions' }, saveBtn),
+      ),
+    );
+  }
+
+  function renderDevSection() {
+    const enabled = isEdgeModeEnabled();
+    const canEnable = edgeModeCanBoot();
+    const toggleEdgeMode = async () => {
+      if (enabled) {
+        disableEdgeMode();
+        toast('Edge Mode disabled for this browser', 'success');
+        renderSection();
+        return;
+      }
+      if (!canEnable) {
+        toast('Edge Mode is not configured on this environment yet', 'error');
+        return;
+      }
+      const confirmed = await showEdgeModeWarning();
+      if (!confirmed) return;
+      setEdgeModeEnabled(true);
+      overlay.remove();
+      store.set({ view: resolveAuthedView() });
+    };
+
+    const actionBtn = el('button', {
+      class: 'btn-confirm',
+      type: 'button',
+      onClick: toggleEdgeMode,
+    }, enabled ? 'Disable Edge Mode' : 'Enable Edge Mode');
+
+    const switchBtn = el('button', {
+      class: `settings-switch${enabled ? ' on' : ''}`,
+      type: 'button',
+      onClick: toggleEdgeMode,
+      title: enabled ? 'Disable Edge Mode' : 'Enable Edge Mode',
+      'aria-label': enabled ? 'Disable Edge Mode' : 'Enable Edge Mode',
+    });
+
+    content.append(
+      el('div', { class: 'settings-section-kicker' }, 'For Devs'),
+      el('div', { class: 'settings-card' },
+        el('div', { class: 'settings-toggle' },
+          el('div', { class: 'settings-toggle-main' },
+            el('div', { class: 'settings-toggle-title' }, 'Edge Mode'),
+            el('div', { class: 'settings-toggle-help' }, 'Open the live development environment in an embedded shell on this stable host.')
+          ),
+          switchBtn
+        ),
+        el('div', { class: 'settings-card-copy' },
+          canEnable
+            ? 'Edge Mode is stored only in this browser. Stable keeps control, and the live app opens on the same host under the `/edge` endpoint.'
+            : 'Edge Mode is visible here, but this environment does not have the `/edge` endpoint enabled yet. Verify `EDGE_MODE_ENABLED` on the backend and restart it.'
+        ),
+        el('div', { class: 'settings-meta-grid' },
+          el('div', { class: 'settings-meta-chip' },
+            el('div', { class: 'settings-meta-label' }, 'Client Mode'),
+            el('div', { class: 'settings-meta-value' }, runtimeConfig?.client_mode || 'stable')
+          ),
+          el('div', { class: 'settings-meta-chip' },
+            el('div', { class: 'settings-meta-label' }, 'Release Channel'),
+            el('div', { class: 'settings-meta-value' }, String(runtimeConfig?.release_channel || 'stable').toUpperCase())
+          ),
+          el('div', { class: 'settings-meta-chip' },
+            el('div', { class: 'settings-meta-label' }, 'Edge Target'),
+            el('div', { class: 'settings-meta-value' }, edgeTargetLabel())
+          ),
+          el('div', { class: 'settings-meta-chip' },
+            el('div', { class: 'settings-meta-label' }, 'Bridge Schema'),
+            el('div', { class: 'settings-meta-value' }, String(runtimeConfig?.bridge_schema_version || 1))
+          )
+        ),
+        el('div', { class: 'settings-warning-copy' }, 'Main remains authoritative. Unsupported Edge writes, including attachment replication, are rejected instead of being forced into stable.'),
+        el('div', { class: 'settings-inline-actions' }, actionBtn),
+      ),
+    );
+  }
+
+  function renderSection() {
+    content.innerHTML = '';
+    Array.from(nav.querySelectorAll('.settings-hub-nav-btn')).forEach((button) => {
+      button.classList.toggle('active', button.dataset.section === section);
+    });
+    if (section === 'devs') renderDevSection();
+    else renderAccountSection();
+  }
+
+  const sections = [
+    { id: 'account', label: 'Account', icon: 'pencilSquare' },
+    { id: 'devs', label: 'For Devs', icon: 'cog' },
+  ];
+  for (const item of sections) {
+    nav.appendChild(
+      el('button', {
+        class: `settings-hub-nav-btn${section === item.id ? ' active' : ''}`,
+        type: 'button',
+        'data-section': item.id,
+        onClick: () => {
+          section = item.id;
+          renderSection();
+        },
+      },
+        heroIcon(item.icon, { size: 18 }),
+        el('span', {}, item.label)
+      )
+    );
+  }
+
+  renderSection();
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) overlay.remove();
+  });
+}
+
 function showUserDirectoryModal({ onOpenDm }) {
   const overlay = el('div', { class: 'modal-overlay' });
   const modal = el('div', { class: 'modal directory-modal' });
@@ -4408,7 +5128,7 @@ function AuthView() {
           await auth.login(email, password);
         }
         const me = await enrichUserPresence(await users.me());
-        store.set({ user: me, isAuthed: true, view: 'app' });
+        store.set({ user: me, isAuthed: true, view: resolveAuthedView() });
       } catch (err) {
         errEl.textContent = err?.message || 'Something went wrong. Please try again.';
         errEl.style.display = 'block';
@@ -4433,6 +5153,96 @@ function AuthView() {
   }
 
   render();
+  return root;
+}
+
+function buildEdgeIframeSrc(cacheBust = Date.now()) {
+  const url = new URL(`${edgePathPrefix()}/`, window.location.origin);
+  url.searchParams.set('embedded', '1');
+  url.searchParams.set('edgeParentOrigin', window.location.origin);
+  url.searchParams.set('edgeBridgeVersion', String(runtimeConfig?.bridge_schema_version || 1));
+  url.searchParams.set('v', String(cacheBust));
+  return url.toString();
+}
+
+function EdgeShellView() {
+  const root = el('div', { class: 'edge-shell' });
+
+  if (!edgeModeCanBoot()) {
+      root.append(
+        el('div', { class: 'edge-shell-empty' },
+          el('div', { class: 'edge-shell-empty-card' },
+            el('div', { class: 'edge-shell-kicker' }, 'Edge Unavailable'),
+            el('div', { class: 'edge-shell-title' }, 'This stable host does not have the `/edge` route enabled.'),
+            el('div', { class: 'settings-card-copy' }, 'Return to stable mode and verify `EDGE_MODE_ENABLED` on the backend, then restart it so the `/edge` route is exposed.')
+          )
+        )
+      );
+    return root;
+  }
+
+  const bar = el('div', { class: 'edge-shell-bar' });
+  const copy = el('div', { class: 'edge-shell-copy' },
+    el('div', { class: 'edge-shell-kicker' }, 'Edge Mode'),
+    el('div', { class: 'edge-shell-title' }, 'Live development environment'),
+    el('div', { class: 'edge-shell-subtitle' }, `Target: ${edgeTargetLabel()} • Stable keeps control while Edge reloads live`),
+  );
+  const actions = el('div', { class: 'edge-shell-actions' });
+  const frameWrap = el('div', { class: 'edge-shell-frame-wrap' });
+  const frame = el('iframe', {
+    class: 'edge-shell-frame',
+    title: 'Wyvern Edge Mode',
+    src: buildEdgeIframeSrc(),
+    referrerpolicy: 'origin',
+    allow: 'clipboard-read; clipboard-write; microphone; camera',
+  });
+  frameWrap.appendChild(frame);
+  bar.append(copy, actions);
+  root.append(bar, frameWrap);
+
+  const reloadFrame = () => {
+    frame.src = buildEdgeIframeSrc();
+  };
+
+  const handleMessage = async (event) => {
+    const edgeOrigin = window.location.origin;
+    if (event.origin !== edgeOrigin || event.source !== frame.contentWindow) return;
+    if (event.data?.type !== 'wyvern.edge.ready') return;
+    if (!token.access) return;
+    try {
+      const handoff = await auth.edgeHandoff();
+      frame.contentWindow?.postMessage({
+        type: 'wyvern.edge.handoff',
+        grant: handoff?.grant || handoff?.data?.grant || handoff?.handoff,
+      }, edgeOrigin);
+    } catch (err) {
+      console.error('Edge handoff failed', err);
+    }
+  };
+
+  const handleDisableMessage = (event) => {
+    if (event.origin !== window.location.origin) return;
+    if (event.data?.type !== 'wyvern.edge.disable') return;
+    setEdgeModeEnabled(false);
+    store.set({ view: 'app' });
+  };
+
+  window.addEventListener('message', handleMessage);
+  window.addEventListener('message', handleDisableMessage);
+
+    actions.append(
+      el('button', {
+        class: 'btn-soft',
+        type: 'button',
+        onClick: disableEdgeMode,
+      }, 'Return to Stable'),
+    el('button', { class: 'btn-confirm', type: 'button', onClick: reloadFrame }, 'Reload Edge'),
+  );
+
+  root.cleanup = () => {
+    window.removeEventListener('message', handleMessage);
+    window.removeEventListener('message', handleDisableMessage);
+  };
   return root;
 }
 
@@ -5191,20 +6001,20 @@ function AppView() {
         applyPresenceLocally(store.state.user?.id, event.data?.status || 'online');
         break;
       case 'message.created':
+        if (msgListEl && Number(event.data?.channel_id || event.channel_id) === Number(store.state.activeChannelId)) {
+          msgListEl.addMessage(event.data);
+        }
         if (event.data?.author_id !== store.state.user?.id) {
           void notifyIncomingMessage(event.data);
         }
-        if (msgListEl && event.data?.channel_id === store.state.activeChannelId) {
-          msgListEl.addMessage(event.data);
-        }
         break;
       case 'message.updated':
-        if (msgListEl && event.data?.channel_id === store.state.activeChannelId) {
+        if (msgListEl && Number(event.data?.channel_id || event.channel_id) === Number(store.state.activeChannelId)) {
           msgListEl.updateMessage(event.data);
         }
         break;
       case 'message.deleted':
-        if (msgListEl && event.data?.channel_id === store.state.activeChannelId) {
+        if (msgListEl && Number(event.data?.channel_id || event.channel_id) === Number(store.state.activeChannelId)) {
           msgListEl.deleteMessage(event.data?.id || event.data?.message_id);
         }
         break;
@@ -5767,62 +6577,11 @@ function AppView() {
       },
     }, el('span', { class: `status-dot-inline s-${currentPresence}` }));
 
-    const editBtn = el('button', { class: 'panel-btn', title: 'Edit Profile', onClick: async () => {
-      showSettingsModal({
-        title: 'Profile Settings',
-        subtitle: 'Update your display name and profile image.',
-        nameLabel: 'Display Name',
-        namePlaceholder: user.username || 'Display Name',
-        initialName: user.display_name || user.username || '',
-        iconLabel: 'Profile Picture',
-        initialIcon: user.avatar || null,
-        detailsLabel: 'Bio',
-        detailsPlaceholder: 'Tell people a bit about yourself.',
-        initialDetails: user.bio || '',
-        detailsMaxLength: 280,
-        toggleLabel: 'Show In User Directory',
-        toggleHelp: 'People can discover you and start a DM from User Directory.',
-        initialToggle: !!user.directory_opt_in,
-        saveLabel: 'Save Profile',
-        requireName: false,
-        onSave: async ({ name, icon, details, toggle }) => {
-          const updatedBase = await users.update({
-            display_name: name || null,
-            bio: details || null,
-            avatar: icon,
-            directory_opt_in: !!toggle,
-          });
-          const updated = { ...(updatedBase || {}), presence: store.state.user?.presence || currentPresence };
-          if (updated?.id) userCache.set(updated.id, updated);
-
-          const nextMembers = {};
-          for (const [serverId, mems] of Object.entries(store.state.members || {})) {
-            nextMembers[serverId] = (mems || []).map((member) => {
-              if (member.user_id !== updated?.id) return member;
-              return { ...member, user: { ...(member.user || {}), ...(updated || {}) } };
-            });
-          }
-
-          const nextDmList = (store.state.dmList || []).map((dm) => {
-            if (!Array.isArray(dm?.participants)) return dm;
-            return {
-              ...dm,
-              participants: dm.participants.map((p) => p?.id === updated?.id ? { ...p, ...(updated || {}) } : p),
-            };
-          });
-
-          store.set({
-            user: updated || user,
-            members: nextMembers,
-            dmList: nextDmList,
-          });
-          renderChatMain();
-          renderMemberSidebar();
-          renderIconSidebar();
-          renderChanSidebar();
-        },
-      });
-    }}, heroIcon('pencilSquare', { size: 16 }));
+    const editBtn = el('button', {
+      class: 'panel-btn',
+      title: 'Settings',
+      onClick: () => showSettingsHub('account'),
+    }, heroIcon('cog', { size: 16 }));
 
     const logoutBtn = el('button', { class: 'panel-btn', title: 'Sign Out', onClick: async () => {
       await leaveVoiceChannel(true);
@@ -5957,6 +6716,18 @@ function AppView() {
       topActions
     );
     chatMain.appendChild(topbar);
+
+    if (currentClientMode() === 'edge' && featureFlagEnabled('edge_release_banner')) {
+      chatMain.appendChild(
+        el('div', { class: 'edge-release-banner' },
+          el('div', { class: 'edge-release-banner-copy' },
+            el('div', { class: 'edge-release-banner-title' }, 'Edge Release Channel'),
+            el('div', { class: 'edge-release-banner-text' }, 'You are viewing live Edge-only changes before they are promoted to Stable.')
+          ),
+          el('div', { class: 'edge-release-banner-pill' }, 'Edge Only')
+        )
+      );
+    }
 
     if (isVoice) {
       msgListEl = null;
@@ -6145,9 +6916,13 @@ function AppView() {
       updateAttachmentBadge();
       try {
         const msg = await msgApi.send(channelId, content, attached, previousReplyTarget?.id || null);
-        // If WS isn't connected, manually add the message
-        if (!store.state.wsConnected && msgListEl) {
-          msgListEl.addMessage({ ...msg, author: store.state.user });
+        if (msgListEl) {
+          msgListEl.addMessage({
+            ...msg,
+            author: store.state.user,
+            channel_id: Number(channelId),
+            reply_to_id: previousReplyTarget?.id || null,
+          });
         }
       } catch (e) {
         toast(e?.message || 'Failed to send', 'error');
@@ -6206,6 +6981,22 @@ function AppView() {
     }
   }
 
+  root.cleanup = () => {
+    closeStatusMenu();
+    stopVoiceStatusPolling();
+    stopVoiceMeterPolling();
+    for (const userId of Array.from(voiceState.peers.keys())) closeVoicePeer(Number(userId));
+    if (voiceState.localStream) {
+      for (const track of voiceState.localStream.getTracks()) {
+        try { track.stop(); } catch {}
+      }
+      voiceState.localStream = null;
+    }
+    socket?.disconnect();
+    socket = null;
+    msgListEl = null;
+  };
+
   // Start it all
   init();
   return root;
@@ -6216,6 +7007,7 @@ const app = document.getElementById('app');
 const bootLoader = document.getElementById('boot-loader');
 let appBootstrapped = false;
 let pageResourcesLoaded = document.readyState === 'complete';
+let activeViewCleanup = null;
 
 function maybeHideBootLoader() {
   if (!bootLoader) return;
@@ -6245,6 +7037,49 @@ window.addEventListener('load', () => {
   maybeHideBootLoader();
 });
 
+function isEmbeddedEdgeClient() {
+  const params = new URLSearchParams(window.location.search);
+  return window.parent !== window && params.get('embedded') === '1' && runtimeConfig?.client_mode === 'edge';
+}
+
+async function tryEmbeddedEdgeHandoff() {
+  if (!isEmbeddedEdgeClient() || token.access) return false;
+
+  const params = new URLSearchParams(window.location.search);
+  const expectedParentOrigin = params.get('edgeParentOrigin') || '';
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = (result) => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener('message', handleMessage);
+      clearTimeout(timer);
+      resolve(!!result);
+    };
+
+    const handleMessage = async (event) => {
+      if (expectedParentOrigin && event.origin !== expectedParentOrigin) return;
+      if (event.data?.type !== 'wyvern.edge.handoff' || !event.data?.grant) return;
+      try {
+        const data = await auth.edgeExchange(event.data.grant);
+        const access = data?.tokens?.access_token || data?.access_token;
+        const refresh = data?.tokens?.refresh_token || data?.refresh_token;
+        if (!access) throw new Error('Edge exchange did not return an access token');
+        token.set(access, refresh);
+        settle(true);
+      } catch (error) {
+        console.error('Embedded edge handoff failed', error);
+        settle(false);
+      }
+    };
+
+    const timer = setTimeout(() => settle(false), 4500);
+    window.addEventListener('message', handleMessage);
+    window.parent.postMessage({ type: 'wyvern.edge.ready' }, expectedParentOrigin || '*');
+  });
+}
+
 function renderToast(t) {
   const existing = document.querySelector('.toast');
   if (existing) existing.remove();
@@ -6259,16 +7094,32 @@ function render(state) {
 
   // View routing
   const currentView = app.getAttribute('data-view');
+  const currentNonce = app.getAttribute('data-view-nonce');
   const targetView = state.view;
-  if (currentView === targetView) return;
+  const targetNonce = String(state.viewNonce || 0);
+  if (currentView === targetView && currentNonce === targetNonce) return;
+
+  if (typeof activeViewCleanup === 'function') {
+    try { activeViewCleanup(); } catch {}
+    activeViewCleanup = null;
+  }
 
   app.setAttribute('data-view', targetView);
+  app.setAttribute('data-view-nonce', targetNonce);
   app.innerHTML = '';
 
   if (targetView === 'auth') {
-    app.appendChild(AuthView());
+    const view = AuthView();
+    activeViewCleanup = typeof view?.cleanup === 'function' ? view.cleanup : null;
+    app.appendChild(view);
   } else if (targetView === 'app') {
-    app.appendChild(AppView());
+    const view = AppView();
+    activeViewCleanup = typeof view?.cleanup === 'function' ? view.cleanup : null;
+    app.appendChild(view);
+  } else if (targetView === 'edge-shell') {
+    const view = EdgeShellView();
+    activeViewCleanup = typeof view?.cleanup === 'function' ? view.cleanup : null;
+    app.appendChild(view);
   }
 }
 
@@ -6278,16 +7129,22 @@ store.subscribe(render);
 // Bootstrap: check for existing session
 async function bootstrap() {
   try {
+    await loadRuntimeConfig();
     if (token.access && token.access !== 'undefined') {
       try {
         const me = await enrichUserPresence(await users.me());
-        store.set({ user: me, isAuthed: true, view: 'app' });
+        store.set({ user: me, isAuthed: true, view: resolveAuthedView() });
         return;
       } catch {
         token.clear();
       }
     } else if (token.access === 'undefined') {
       token.clear();
+    }
+    if (await tryEmbeddedEdgeHandoff()) {
+      const me = await enrichUserPresence(await users.me());
+      store.set({ user: me, isAuthed: true, view: 'app' });
+      return;
     }
     store.set({ view: 'auth' });
   } finally {

@@ -4,16 +4,19 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database import get_db
 from app.models import Channel, Message, Server, ServerMember, User
 from app.schemas.server import ServerOut
 from app.schemas.user import UserOut
 from app.services.admin_allowlist import admin_allowlist_service
+from app.services.release_flags import build_release_audit, build_release_status, promote_release_flags, resolve_release_channel
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+settings = get_settings()
 
 
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
@@ -195,3 +198,48 @@ async def admin_overview(
             "activity": activity_payload,
         }
     )
+
+
+@router.get("/releases")
+async def admin_releases(
+    mode: str = Query(default="stable"),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> dict:
+    release_channel = resolve_release_channel(mode)
+    payload = await build_release_status(db, release_channel)
+    return success_response(payload.model_dump(mode="json"))
+
+
+@router.get("/releases/audit")
+async def admin_release_audit(
+    limit: int = Query(default=25, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> dict:
+    audits = await build_release_audit(db, limit)
+    user_ids = {audit.promoted_by_user_id for audit in audits if audit.promoted_by_user_id is not None}
+    user_labels: dict[int, str] = {}
+    if user_ids:
+        result = await db.execute(select(User).where(User.id.in_(user_ids)))
+        for user in result.scalars().all():
+            user_labels[int(user.id)] = user.display_name or user.username
+
+    payload = []
+    for audit in audits:
+        item = audit.model_dump(mode="json")
+        if audit.promoted_by_user_id is not None:
+            item["promoted_by_label"] = user_labels.get(int(audit.promoted_by_user_id))
+        payload.append(item)
+    return success_response({"items": payload})
+
+
+@router.post("/releases/promote")
+async def admin_promote_releases(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> dict:
+    if settings.node_role != "main":
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Release promotion is only available on Stable")
+    result = await promote_release_flags(db, current_user.id)
+    return success_response(result.model_dump(mode="json"))

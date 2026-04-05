@@ -148,9 +148,50 @@
       box-shadow: var(--neon-glow);
     }
 
+    .btn-confirm {
+      background: var(--neon-dim);
+      color: var(--neon);
+    }
+
+    .btn-confirm:hover {
+      background: rgba(0, 200, 255, 0.18);
+      box-shadow: var(--neon-glow);
+    }
+
     .btn-ghost:hover {
       color: var(--text);
       background: rgba(255, 255, 255, 0.04);
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(8px);
+    }
+
+    .modal {
+      width: min(100%, 640px);
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+      padding: 22px;
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 20px;
     }
 
     .hero {
@@ -244,6 +285,160 @@
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 16px;
       margin-bottom: 16px;
+    }
+
+    .release-panel {
+      margin-bottom: 16px;
+    }
+
+    .release-panel-body {
+      display: grid;
+      gap: 16px;
+    }
+
+    .release-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .release-stat {
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+    }
+
+    .release-stat-label {
+      color: var(--text-muted);
+      font-size: 10px;
+      letter-spacing: 1.3px;
+      text-transform: uppercase;
+    }
+
+    .release-stat-value {
+      margin-top: 8px;
+      color: var(--neon);
+      font-family: "Orbitron", sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .release-stat-help {
+      margin-top: 6px;
+      color: rgba(255, 255, 255, 0.58);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .release-flags,
+    .release-audit {
+      display: grid;
+      gap: 10px;
+    }
+
+    .release-flag-card,
+    .release-audit-card {
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .release-flag-head,
+    .release-audit-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .release-flag-name {
+      color: var(--text-soft);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .release-flag-desc {
+      margin-top: 4px;
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .release-flag-values {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .release-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.9px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .release-pill.stable {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-soft);
+    }
+
+    .release-pill.edge {
+      background: rgba(0, 200, 255, 0.12);
+      color: var(--neon);
+    }
+
+    .release-pill.on {
+      background: rgba(0, 200, 255, 0.16);
+      color: var(--neon);
+    }
+
+    .release-pill.off {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+    }
+
+    .release-pill.pending {
+      background: rgba(255, 168, 32, 0.14);
+      color: var(--warn);
+    }
+
+    .release-audit-card {
+      display: grid;
+      gap: 8px;
+    }
+
+    .release-audit-meta {
+      color: var(--text-muted);
+      font-size: 11px;
+      letter-spacing: 0.9px;
+      text-transform: uppercase;
+    }
+
+    .release-audit-keys {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .release-empty {
+      display: grid;
+      place-items: center;
+      min-height: 100px;
+      color: var(--text-muted);
+      font-size: 13px;
+      text-align: center;
+      padding: 16px;
     }
 
     .stat {
@@ -428,6 +623,10 @@
       .stats {
         grid-template-columns: 1fr;
       }
+
+      .release-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     @media (max-width: 640px) {
@@ -453,6 +652,10 @@
       .row {
         grid-template-columns: 1fr;
         align-items: flex-start;
+      }
+
+      .release-summary {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -514,6 +717,24 @@
       </article>
     </section>
 
+    <section class="panel panel-wide release-panel">
+      <div class="panel-head">
+        <div class="panel-title">Releases</div>
+        <div class="top-actions">
+          <span id="releaseStatus" class="status-line">Loading release status...</span>
+          <button id="promoteBtn" class="btn btn-primary" type="button">Push Edge to Stable</button>
+        </div>
+      </div>
+      <div class="panel-body release-panel-body">
+        <div id="releaseSummary" class="release-summary"></div>
+        <div id="releaseFlags" class="release-flags"></div>
+        <div>
+          <div class="panel-title" style="margin-bottom: 10px;">Promotion History</div>
+          <div id="releaseAudit" class="release-audit"></div>
+        </div>
+      </div>
+    </section>
+
     <section class="grid">
       <section class="panel">
         <div class="panel-head">
@@ -546,6 +767,11 @@
       usersCount: document.getElementById('usersCount'),
       serversCount: document.getElementById('serversCount'),
       eventsCount: document.getElementById('eventsCount'),
+      releaseStatus: document.getElementById('releaseStatus'),
+      releaseSummary: document.getElementById('releaseSummary'),
+      releaseFlags: document.getElementById('releaseFlags'),
+      releaseAudit: document.getElementById('releaseAudit'),
+      promoteBtn: document.getElementById('promoteBtn'),
       activity: document.getElementById('activity'),
       users: document.getElementById('users'),
       servers: document.getElementById('servers'),
@@ -570,9 +796,15 @@
       return access ? { Authorization: `Bearer ${access}` } : {};
     }
 
-    async function req(path) {
+    async function req(path, options = {}) {
       const res = await fetch(`${API_PREFIX}${path}`, {
-        headers: { ...authHeader() },
+        method: options.method || 'GET',
+        headers: {
+          ...authHeader(),
+          ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+          ...(options.headers || {}),
+        },
+        body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
       });
 
       if (res.status === 401) {
@@ -735,6 +967,237 @@
       els.activity.replaceChildren(frag);
     }
 
+    function setReleaseStatus(message, type = '') {
+      if (!els.releaseStatus) return;
+      els.releaseStatus.textContent = message;
+      els.releaseStatus.className = `status-line${type ? ` ${type}` : ''}`;
+    }
+
+    function makeReleasePill(label, kind) {
+      return (() => {
+        const pill = document.createElement('span');
+        pill.className = `release-pill ${kind}`;
+        pill.textContent = label;
+        return pill;
+      })();
+    }
+
+    function renderReleaseSummary(status) {
+      const bridge = status?.bridge_health || {};
+      const summary = [
+        {
+          label: 'Release Channel',
+          value: String(status?.release_channel || 'stable').toUpperCase(),
+          help: 'Runtime channel reported by the current host.',
+        },
+        {
+          label: 'Edge Mode',
+          value: bridge.edge_mode_enabled ? 'ENABLED' : 'DISABLED',
+          help: bridge.edge_mode_available
+            ? 'Edge entry is available on this host.'
+            : 'Edge entry is not available on this host yet.',
+        },
+        {
+          label: 'Promotable Flags',
+          value: String(status?.promotable_count || 0),
+          help: 'Flags where Stable and Edge currently differ.',
+        },
+        {
+          label: 'Bridge Health',
+          value: bridge.configured ? 'READY' : 'OFFLINE',
+          help: `Pending ${bridge.pending_outbox || 0} • Dead ${bridge.dead_letter_outbox || 0}`,
+        },
+      ];
+
+      const frag = document.createDocumentFragment();
+      for (const item of summary) {
+        const card = document.createElement('div');
+        card.className = 'release-stat';
+        const label = document.createElement('div');
+        label.className = 'release-stat-label';
+        label.textContent = item.label;
+        const value = document.createElement('div');
+        value.className = 'release-stat-value';
+        value.textContent = item.value;
+        const help = document.createElement('div');
+        help.className = 'release-stat-help';
+        help.textContent = item.help || '';
+        card.append(label, value, help);
+        frag.appendChild(card);
+      }
+      els.releaseSummary.replaceChildren(frag);
+    }
+
+    function renderReleaseFlags(status) {
+      const flags = Array.isArray(status?.flags) ? status.flags : [];
+      const resolved = status?.resolved_feature_flags || {};
+
+      if (!flags.length) {
+        els.releaseFlags.innerHTML = '<div class="release-empty">No release flags are configured yet.</div>';
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      for (const flag of flags) {
+        const stable = !!flag.stable_enabled;
+        const edge = !!flag.edge_enabled;
+        const current = !!resolved?.[flag.key];
+        const pending = stable !== edge;
+
+        const card = document.createElement('div');
+        card.className = 'release-flag-card';
+
+        const head = document.createElement('div');
+        head.className = 'release-flag-head';
+
+        const main = document.createElement('div');
+        const name = document.createElement('div');
+        name.className = 'release-flag-name';
+        name.textContent = flag.key;
+        const desc = document.createElement('div');
+        desc.className = 'release-flag-desc';
+        desc.textContent = flag.description || '';
+        main.append(name, desc);
+
+        const values = document.createElement('div');
+        values.className = 'release-flag-values';
+        values.append(
+          makeReleasePill(`Stable ${stable ? 'On' : 'Off'}`, stable ? 'stable on' : 'stable off'),
+          makeReleasePill(`Edge ${edge ? 'On' : 'Off'}`, edge ? 'edge on' : 'edge off'),
+          makeReleasePill(`Resolved ${current ? 'On' : 'Off'}`, current ? 'on' : 'off'),
+          makeReleasePill(pending ? 'Needs Promotion' : 'Synced', pending ? 'pending' : 'stable')
+        );
+
+        head.append(main, values);
+        card.append(head);
+        frag.appendChild(card);
+      }
+
+      els.releaseFlags.replaceChildren(frag);
+    }
+
+    function renderReleaseAudit(items) {
+      if (!items.length) {
+        els.releaseAudit.innerHTML = '<div class="release-empty">No promotion history yet.</div>';
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      for (const audit of items) {
+        const card = document.createElement('div');
+        card.className = 'release-audit-card';
+
+        const head = document.createElement('div');
+        head.className = 'release-audit-head';
+
+        const main = document.createElement('div');
+        const title = document.createElement('div');
+        title.className = 'name';
+        title.textContent = audit.promoted_by_label || `User ${audit.promoted_by_user_id || '-'}`;
+        const meta = document.createElement('div');
+        meta.className = 'release-audit-meta';
+        meta.textContent = `Promoted ${fmtTs(audit.promoted_at)}`;
+        main.append(title, meta);
+
+        const keys = document.createElement('div');
+        keys.className = 'release-audit-keys';
+        for (const key of audit.promoted_flag_keys || []) {
+          keys.appendChild(makeReleasePill(key, 'pending'));
+        }
+
+        head.append(main);
+        card.append(head, keys);
+        frag.appendChild(card);
+      }
+
+      els.releaseAudit.replaceChildren(frag);
+    }
+
+    function showPromotionConfirm() {
+      return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.maxWidth = '560px';
+
+        const title = document.createElement('div');
+        title.className = 'hero-title';
+        title.textContent = 'Push Edge to Stable';
+        title.style.fontSize = '28px';
+        title.style.marginBottom = '10px';
+
+        const copy = document.createElement('div');
+        copy.className = 'release-stat-help';
+        copy.style.fontSize = '14px';
+        copy.style.lineHeight = '1.7';
+        copy.innerHTML = 'This copies every promotable Edge flag value into Stable and writes an audit entry. Stable clients will pick up the promoted behavior after reload.';
+
+        const actions = document.createElement('div');
+        actions.className = 'modal-actions';
+
+        const close = (value) => {
+          overlay.remove();
+          resolve(!!value);
+        };
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn-ghost';
+        cancelBtn.type = 'button';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', () => close(false));
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'btn-confirm';
+        confirmBtn.type = 'button';
+        confirmBtn.textContent = 'Push Edge to Stable';
+        confirmBtn.addEventListener('click', () => close(true));
+
+        actions.append(cancelBtn, confirmBtn);
+
+        modal.append(title, copy, actions);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (event) => {
+          if (event.target === overlay) close(false);
+        });
+      });
+    }
+
+    async function loadReleases() {
+      setReleaseStatus('Loading release status...');
+      try {
+        const [status, audit] = await Promise.all([
+          req('/admin/releases'),
+          req('/admin/releases/audit'),
+        ]);
+
+        renderReleaseSummary(status);
+        renderReleaseFlags(status);
+        renderReleaseAudit(Array.isArray(audit?.items) ? audit.items : []);
+
+        const promotable = Number(status?.promotable_count || 0);
+        const onStable = String(status?.bridge_health?.node_role || '').toLowerCase() === 'main';
+        const canPromote = onStable && promotable > 0;
+        els.promoteBtn.disabled = !canPromote;
+        setReleaseStatus(
+          !onStable
+            ? 'Promotion is only available on Stable'
+            : promotable > 0
+            ? `${promotable} flag${promotable === 1 ? '' : 's'} ready to promote`
+            : 'Stable and Edge flags are currently aligned',
+          canPromote ? 'warn' : (onStable ? 'ok' : 'warn')
+        );
+      } catch (err) {
+        els.releaseSummary.innerHTML = '<div class="release-empty">Could not load release status.</div>';
+        els.releaseFlags.innerHTML = '<div class="release-empty">Could not load release flags.</div>';
+        els.releaseAudit.innerHTML = '<div class="release-empty">Could not load promotion history.</div>';
+        els.promoteBtn.disabled = true;
+        setReleaseStatus(err?.message || 'Failed to load release status', 'warn');
+      }
+    }
+
     async function loadOverview() {
       setStatus('Loading admin overview...');
       try {
@@ -760,9 +1223,34 @@
       }
     }
 
-    els.refreshBtn.addEventListener('click', loadOverview);
-    loadOverview();
-    setInterval(loadOverview, 20000);
+    els.promoteBtn.addEventListener('click', async () => {
+      if (els.promoteBtn.disabled) return;
+      const confirmed = await showPromotionConfirm();
+      if (!confirmed) return;
+      els.promoteBtn.disabled = true;
+      setReleaseStatus('Promoting release flags...');
+      try {
+        const result = await req('/admin/releases/promote', { method: 'POST' });
+        const promoted = Number(result?.promoted_count || 0);
+        setReleaseStatus(
+          promoted > 0
+            ? `Promoted ${promoted} flag${promoted === 1 ? '' : 's'} to Stable`
+            : 'Nothing to promote',
+          promoted > 0 ? 'ok' : 'warn'
+        );
+        await Promise.all([loadOverview(), loadReleases()]);
+      } catch (err) {
+        setReleaseStatus(err?.message || 'Promotion failed', 'warn');
+        await loadReleases();
+      }
+    });
+
+    els.refreshBtn.addEventListener('click', refreshAll);
+    async function refreshAll() {
+      await Promise.all([loadOverview(), loadReleases()]);
+    }
+    refreshAll();
+    setInterval(refreshAll, 20000);
   </script>
 </body>
 </html>

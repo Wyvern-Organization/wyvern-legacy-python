@@ -5,9 +5,26 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database import get_db
 from app.models import RefreshToken, User
-from app.schemas.auth import AuthUser, LoginRequest, LogoutRequest, RefreshRequest, RegisterRequest, TokenPair
+from app.schemas.auth import (
+    AuthUser,
+    EdgeExchangeRequest,
+    EdgeHandoffOut,
+    LoginRequest,
+    LogoutRequest,
+    RefreshRequest,
+    RegisterRequest,
+    TokenPair,
+)
+from app.services.sync_bridge import (
+    consume_edge_handoff_grant,
+    create_edge_handoff_grant,
+    decode_edge_handoff_grant,
+    enqueue_upsert_event,
+)
+from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
 from app.utils.security import (
     TokenError,
@@ -21,6 +38,7 @@ from app.utils.security import (
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+settings = get_settings()
 
 
 async def _generate_discriminator(db: AsyncSession, username: str) -> str:
@@ -53,6 +71,7 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
     )
     db.add(user)
     await db.flush()
+    await enqueue_upsert_event(db, "user", user, base_sync_version=0)
 
     access_token = create_access_token(user.id)
     refresh_token, refresh_token_hash, refresh_expires_at = create_refresh_token(user.id)
@@ -181,3 +200,69 @@ async def logout(payload: LogoutRequest, db: AsyncSession = Depends(get_db)) -> 
         await db.commit()
 
     return success_response({"logged_out": True})
+
+
+@router.post("/edge-handoff")
+async def edge_handoff(current_user: User = Depends(get_current_user)) -> dict:
+    if settings.node_role != "main" or not settings.edge_mode_enabled:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Edge Mode is not configured")
+    grant, expires_at = create_edge_handoff_grant(current_user)
+    return success_response(EdgeHandoffOut(grant=grant, expires_at=expires_at).model_dump(mode="json"))
+
+
+@router.post("/edge-exchange")
+async def edge_exchange(payload: EdgeExchangeRequest, db: AsyncSession = Depends(get_db)) -> dict:
+    if not settings.edge_mode_enabled:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Edge Mode is not configured")
+
+    try:
+        grant_payload = decode_edge_handoff_grant(payload.grant)
+        await consume_edge_handoff_grant(grant_payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+    user_snapshot = grant_payload.get("user") or {}
+    user_sync_id = str(user_snapshot.get("sync_id") or grant_payload.get("sub") or "")
+    if not user_sync_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Edge handoff grant is missing a user id")
+
+    result = await db.execute(select(User).where(User.sync_id == user_sync_id))
+    user = result.scalar_one_or_none()
+
+    if user is None and user_snapshot.get("email"):
+        result = await db.execute(select(User).where(func.lower(User.email) == str(user_snapshot["email"]).lower()))
+        user = result.scalar_one_or_none()
+
+    if user is None:
+        user = User(
+            sync_id=user_sync_id,
+            username=str(user_snapshot.get("username") or "edge-user"),
+            discriminator=str(user_snapshot.get("discriminator") or "0001"),
+            display_name=user_snapshot.get("display_name"),
+            bio=user_snapshot.get("bio"),
+            directory_opt_in=bool(user_snapshot.get("directory_opt_in")),
+            email=str(user_snapshot.get("email") or f"{user_sync_id}@edge.invalid"),
+            avatar=user_snapshot.get("avatar"),
+            password_hash=hash_password(str(user_sync_id)),
+            is_paid=bool(user_snapshot.get("is_paid")),
+        )
+        db.add(user)
+        await db.flush()
+
+    access_token = create_access_token(user.id)
+    refresh_token, refresh_token_hash, refresh_expires_at = create_refresh_token(user.id)
+    db.add(
+        RefreshToken(
+            user_id=user.id,
+            token_hash=refresh_token_hash,
+            expires_at=refresh_expires_at,
+        )
+    )
+    await db.commit()
+
+    return success_response(
+        {
+            "user": AuthUser.model_validate(user).model_dump(),
+            "tokens": TokenPair(access_token=access_token, refresh_token=refresh_token).model_dump(),
+        }
+    )

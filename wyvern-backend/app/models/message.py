@@ -5,9 +5,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.sync import SyncMixin
 
 
-class Message(Base):
+class Message(SyncMixin, Base):
     __tablename__ = "messages"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

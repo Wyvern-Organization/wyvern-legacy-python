@@ -5,9 +5,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.models.enums import MemberRole
+from app.models.sync import SyncMixin
 
 
-class ServerMember(Base):
+class ServerMember(SyncMixin, Base):
     __tablename__ = "server_members"
 
     server_id: Mapped[int] = mapped_column(ForeignKey("servers.id", ondelete="CASCADE"), primary_key=True)

@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models import Channel, ChannelType, DMParticipant, User
 from app.schemas.dm import DMChannelOut, DMCreateRequest, DMParticipantOut
 from app.services.pubsub import publish_channel_event
+from app.services.sync_bridge import enqueue_delete_event, enqueue_upsert_event
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
 
@@ -84,12 +85,17 @@ async def create_dm_channel(
     db.add(channel)
     await db.flush()
 
+    participants = [
+        DMParticipant(channel_id=channel.id, user_id=current_user.id),
+        DMParticipant(channel_id=channel.id, user_id=payload.recipient_id),
+    ]
     db.add_all(
-        [
-            DMParticipant(channel_id=channel.id, user_id=current_user.id),
-            DMParticipant(channel_id=channel.id, user_id=payload.recipient_id),
-        ]
+        participants
     )
+    await db.flush()
+    await enqueue_upsert_event(db, "channel", channel, base_sync_version=0)
+    for participant in participants:
+        await enqueue_upsert_event(db, "dm_participant", participant, base_sync_version=0)
 
     await db.commit()
     await db.refresh(channel)
@@ -165,7 +171,13 @@ async def close_dm_channel(
 
     participant_ids_result = await db.execute(select(DMParticipant.user_id).where(DMParticipant.channel_id == channel_id))
     participant_ids = set(participant_ids_result.scalars().all())
+    participant_rows = (
+        await db.execute(select(DMParticipant).where(DMParticipant.channel_id == channel_id))
+    ).scalars().all()
 
+    for participant in participant_rows:
+        await enqueue_delete_event(db, "dm_participant", participant, base_sync_version=participant.sync_version)
+    await enqueue_delete_event(db, "channel", channel, base_sync_version=channel.sync_version)
     await db.delete(channel)
     await db.commit()
 

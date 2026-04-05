@@ -17,6 +17,20 @@
 - Refined chat replies so they render as connected message references above the author line, staying visually distinct from emoji reactions.
 - Fixed reaction updates so emoji reaction chips appear immediately from both direct clicks and live socket events.
 - Added a cache-busting embed version to the landing page's deployed iframe fallback so Netlify-style mirrors pick up the latest app UI changes reliably.
+- Added a browser-local `Edge Mode` in `Settings -> For Devs` with a required `I understand` warning gate before users can enter the live development environment.
+- Wired the Edge Mode switch itself to the same enable/disable handler as the button so the toggle animates and responds to clicks instead of acting like a dead indicator.
+- Made Edge Mode disable cleanly exit embedded edge shells, clear edge-session tokens, and route direct `/edge` tabs back to Stable instead of leaving the browser stuck in Edge.
+- Routed Edge websocket traffic through `/edge/ws` alongside `/edge/api/v1` so the edge client uses the same path namespace for both realtime and HTTP traffic.
+- Made chat sends update the message list immediately after a successful post, and loosened message event channel matching to avoid missing live Edge updates.
+- Replaced the old profile-only entry point with a lightweight settings hub that now includes `Account` and `For Devs`, while keeping profile editing inside the app.
+- Added runtime Edge configuration, stable-to-edge iframe session handoff, and a stable-hosted Edge shell with a persistent banner, `Return to Stable`, and `Reload Edge`.
+- Added separate-environment sync metadata, replication outbox/inbound ledger tables, signed internal sync endpoints, and a background bridge worker so compatible writes can flow between `main` and `edge` without sharing a database.
+- Seeded the Edge environment from `main` through a signed bootstrap sync path and made `main` authoritative for conflict handling so rejected or incompatible Edge writes do not overwrite stable data.
+- Moved Edge entry to a same-host `/edge` endpoint behind an `EDGE_MODE_ENABLED` feature flag so users no longer need separate stable/edge public URLs.
+- Removed the public stable/edge app URL runtime wiring and now derive the Edge shell target from the current origin plus `/edge`.
+- Added a DB-backed release-flag system with `/admin` promotion controls so Edge-only feature flags can be promoted into Stable with an audit trail instead of requiring a deploy swap.
+- Added a release-channel runtime payload so the SPA can resolve Stable vs Edge feature flags from the backend and show Edge-only UI only inside the Edge channel.
+- Tightened the sync bridge so only shared chat records and DM-related changes can cross from Edge back into Stable before promotion, while structural and experimental Edge writes stay out of Stable.
 
 ## 2026-04-04
 

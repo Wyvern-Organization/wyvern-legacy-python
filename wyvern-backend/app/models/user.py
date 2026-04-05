@@ -4,9 +4,10 @@ from sqlalchemy import Boolean, DateTime, Integer, String, UniqueConstraint, fun
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.sync import SyncMixin
 
 
-class User(Base):
+class User(SyncMixin, Base):
     __tablename__ = "users"
     __table_args__ = (
         UniqueConstraint("username", "discriminator", name="uq_users_username_discriminator"),

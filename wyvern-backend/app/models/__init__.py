@@ -4,8 +4,10 @@ from app.models.enums import ChannelType, MemberRole, PresenceStatus
 from app.models.message import Message
 from app.models.reaction import Reaction
 from app.models.refresh_token import RefreshToken
+from app.models.release import ReleaseFlag, ReleasePromotionAudit
 from app.models.server import Server
 from app.models.server_member import ServerMember
+from app.models.sync import ReplicationInboundLedger, ReplicationOutbox
 from app.models.user import User
 from app.models.server_invite import ServerInvite
 
@@ -18,6 +20,10 @@ __all__ = [
     "PresenceStatus",
     "Reaction",
     "RefreshToken",
+    "ReleaseFlag",
+    "ReleasePromotionAudit",
+    "ReplicationInboundLedger",
+    "ReplicationOutbox",
     "Server",
     "ServerInvite",
     "ServerMember",

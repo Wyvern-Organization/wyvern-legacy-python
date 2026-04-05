@@ -17,6 +17,7 @@ from app.schemas.server import (
     ServerOut,
     ServerUpdate,
 )
+from app.services.sync_bridge import bump_sync_version, enqueue_delete_event, enqueue_upsert_event
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
 
@@ -73,6 +74,14 @@ async def create_server(
             role=MemberRole.owner,
         )
     )
+    await db.flush()
+    owner_member = (
+        await db.execute(
+            select(ServerMember).where(and_(ServerMember.server_id == server.id, ServerMember.user_id == current_user.id))
+        )
+    ).scalar_one()
+    await enqueue_upsert_event(db, "server", server, base_sync_version=0)
+    await enqueue_upsert_event(db, "server_member", owner_member, base_sync_version=0)
     await db.commit()
     await db.refresh(server)
 
@@ -172,6 +181,8 @@ async def update_server(
         server.icon = payload.icon
     if "directory_opt_in" in provided and payload.directory_opt_in is not None:
         server.directory_opt_in = payload.directory_opt_in
+    base_sync_version = bump_sync_version(server)
+    await enqueue_upsert_event(db, "server", server, base_sync_version=base_sync_version)
 
     await db.commit()
     await db.refresh(server)
@@ -192,6 +203,7 @@ async def delete_server(
     if server.owner_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only owner can delete server")
 
+    await enqueue_delete_event(db, "server", server, base_sync_version=server.sync_version)
     await db.delete(server)
     await db.commit()
     return success_response({"deleted": True})
@@ -214,6 +226,8 @@ async def join_server(
 
     new_member = ServerMember(server_id=server_id, user_id=current_user.id, role=MemberRole.member)
     db.add(new_member)
+    await db.flush()
+    await enqueue_upsert_event(db, "server_member", new_member, base_sync_version=0)
     await db.commit()
     await db.refresh(new_member)
 
@@ -238,6 +252,8 @@ async def create_server_invite(
     code = await _generate_unique_invite_code(db)
     invite = ServerInvite(server_id=server_id, code=code, created_by=current_user.id)
     db.add(invite)
+    await db.flush()
+    await enqueue_upsert_event(db, "server_invite", invite, base_sync_version=0)
     await db.commit()
     await db.refresh(invite)
 
@@ -295,6 +311,8 @@ async def join_server_by_invite(
     if membership is None:
         membership = ServerMember(server_id=server.id, user_id=current_user.id, role=MemberRole.member)
         db.add(membership)
+        await db.flush()
+        await enqueue_upsert_event(db, "server_member", membership, base_sync_version=0)
         await db.commit()
         await db.refresh(membership)
     payload = ServerJoinByInviteOut(
@@ -317,6 +335,7 @@ async def leave_server(
     if membership.role == MemberRole.owner:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Owner cannot leave server")
 
+    await enqueue_delete_event(db, "server_member", membership, base_sync_version=membership.sync_version)
     await db.delete(membership)
     await db.commit()
     return success_response({"left": True})
@@ -359,6 +378,8 @@ async def update_member_role(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot change owner role")
 
     target_membership.role = role
+    base_sync_version = bump_sync_version(target_membership)
+    await enqueue_upsert_event(db, "server_member", target_membership, base_sync_version=base_sync_version)
     await db.commit()
     await db.refresh(target_membership)
     return success_response(ServerMemberOut.model_validate(target_membership).model_dump())

@@ -13,6 +13,15 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://postgres:postgres@postgres:5432/wyvern"
     redis_url: str = "redis://redis:6379/0"
+    sync_peer_api_url: str | None = None
+    node_role: str = "main"
+    sync_shared_secret: str | None = None
+    sync_enabled: bool = False
+    edge_mode_enabled: bool = False
+    edge_handoff_ttl_seconds: int = 90
+    sync_bridge_batch_size: int = 100
+    sync_bridge_poll_interval_seconds: float = 2.0
+    sync_bridge_request_timeout_seconds: float = 10.0
 
     jwt_secret_key: str = "change-me"
     jwt_algorithm: str = "HS256"
@@ -70,6 +79,33 @@ class Settings(BaseSettings):
         if not normalized:
             return None
         return normalized.rstrip("/")
+
+    @field_validator("sync_peer_api_url", mode="before")
+    @classmethod
+    def normalize_optional_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            return None
+        return normalized.rstrip("/")
+
+    @field_validator("node_role", mode="before")
+    @classmethod
+    def normalize_node_role(cls, value: str) -> str:
+        normalized = (value or "main").strip().lower()
+        return normalized if normalized in {"main", "edge"} else "main"
+
+    @field_validator("sync_enabled", "edge_mode_enabled", mode="before")
+    @classmethod
+    def parse_bool_flag(cls, value: bool | str) -> bool:
+        if isinstance(value, str):
+            lowered = value.strip().lower()
+            if lowered in {"1", "true", "yes", "on"}:
+                return True
+            if lowered in {"0", "false", "no", "off"}:
+                return False
+        return bool(value)
 
     def resolve_media_dir(self, project_root: Path) -> Path:
         media_dir = Path(self.local_media_dir)
