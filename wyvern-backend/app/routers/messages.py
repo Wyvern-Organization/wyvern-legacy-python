@@ -1,13 +1,23 @@
 from datetime import UTC, datetime
+from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
 from app.database import get_db
 from app.models import Channel, ChannelType, DMParticipant, MemberRole, Message, Reaction, ServerMember, User
-from app.schemas.message import MessageCreate, MessageHistoryOut, MessageOut, MessageUpdate, ReactionPayload
+from app.schemas.message import (
+    MessageCreate,
+    MessageHistoryOut,
+    MessageOut,
+    MessageReactionOut,
+    MessageReplyPreviewOut,
+    MessageUpdate,
+    ReactionPayload,
+)
 from app.services.access import ensure_channel_access, get_channel_or_404, get_message_or_404
 from app.services.pubsub import publish_channel_event
 from app.services.rate_limiter import rate_limiter
@@ -48,6 +58,77 @@ async def _channel_member_ids(db: AsyncSession, channel: Channel) -> set[int]:
     return set(result.scalars().all())
 
 
+def _serialize_reply_preview(message: Message | None) -> MessageReplyPreviewOut | None:
+    if message is None:
+        return None
+
+    return MessageReplyPreviewOut(
+        id=message.id,
+        author_id=message.author_id,
+        content=message.content,
+        attachments=list(message.attachments or []),
+        created_at=message.created_at,
+        edited_at=message.edited_at,
+    )
+
+
+def _serialize_reactions(message: Message) -> list[MessageReactionOut]:
+    grouped: dict[str, list[int]] = defaultdict(list)
+    for reaction in message.reactions or []:
+        grouped[reaction.emoji].append(reaction.user_id)
+
+    reaction_items = [
+        MessageReactionOut(
+            emoji=emoji,
+            count=len(user_ids),
+            users=sorted(set(user_ids)),
+        )
+        for emoji, user_ids in grouped.items()
+    ]
+    return sorted(reaction_items, key=lambda item: (-item.count, item.emoji))
+
+
+def _serialize_message(message: Message) -> dict:
+    payload = MessageOut(
+        id=message.id,
+        channel_id=message.channel_id,
+        author_id=message.author_id,
+        reply_to_id=message.reply_to_id,
+        content=message.content,
+        attachments=list(message.attachments or []),
+        created_at=message.created_at,
+        edited_at=message.edited_at,
+        reply_to=_serialize_reply_preview(message.reply_to),
+        reactions=_serialize_reactions(message),
+    )
+    return payload.model_dump(mode="json")
+
+
+def _serialize_reaction_event(message: Message, *, user_id: int, emoji: str) -> dict:
+    return {
+        "message_id": message.id,
+        "channel_id": message.channel_id,
+        "user_id": user_id,
+        "emoji": emoji,
+        "message": _serialize_message(message),
+    }
+
+
+async def _load_message_with_relations(db: AsyncSession, message_id: int) -> Message:
+    result = await db.execute(
+        select(Message)
+        .where(Message.id == message_id)
+        .options(
+            selectinload(Message.reply_to),
+            selectinload(Message.reactions),
+        )
+    )
+    message = result.scalar_one_or_none()
+    if message is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+    return message
+
+
 @router.post("/channels/{channel_id}")
 async def send_message(
     channel_id: int,
@@ -68,17 +149,27 @@ async def send_message(
     if not payload.content and not payload.attachments:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Message cannot be empty")
 
+    reply_to_id = payload.reply_to_id
+    if reply_to_id is not None:
+        reply_message = await get_message_or_404(db, reply_to_id)
+        if reply_message.channel_id != channel.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Replies must target a message in the same channel",
+            )
+
     message = Message(
         channel_id=channel.id,
         author_id=current_user.id,
+        reply_to_id=reply_to_id,
         content=payload.content,
         attachments=payload.attachments,
     )
     db.add(message)
     await db.commit()
-    await db.refresh(message)
+    message = await _load_message_with_relations(db, message.id)
 
-    serialized = MessageOut.model_validate(message).model_dump(mode="json")
+    serialized = _serialize_message(message)
     recipient_ids = await _channel_member_ids(db, channel)
     await publish_channel_event(
         channel.id,
@@ -104,7 +195,14 @@ async def get_message_history(
     channel = await get_channel_or_404(db, channel_id)
     await ensure_channel_access(db, channel, current_user.id)
 
-    query = select(Message).where(Message.channel_id == channel_id)
+    query = (
+        select(Message)
+        .where(Message.channel_id == channel_id)
+        .options(
+            selectinload(Message.reply_to),
+            selectinload(Message.reactions),
+        )
+    )
     if cursor is not None:
         query = query.where(Message.id < cursor)
 
@@ -115,7 +213,7 @@ async def get_message_history(
     has_more = len(rows) > limit
     rows = rows[:limit]
 
-    items = [MessageOut.model_validate(row).model_dump(mode="json") for row in rows]
+    items = [_serialize_message(row) for row in rows]
     items.reverse()
 
     next_cursor = rows[-1].id if has_more and rows else None
@@ -141,9 +239,9 @@ async def edit_message(
     message.content = payload.content
     message.edited_at = datetime.now(tz=UTC)
     await db.commit()
-    await db.refresh(message)
+    message = await _load_message_with_relations(db, message.id)
 
-    serialized = MessageOut.model_validate(message).model_dump(mode="json")
+    serialized = _serialize_message(message)
     recipient_ids = await _channel_member_ids(db, channel)
     await publish_channel_event(
         message.channel_id,
@@ -217,11 +315,8 @@ async def add_reaction(
         db.add(Reaction(message_id=message.id, user_id=current_user.id, emoji=payload.emoji))
         await db.commit()
 
-    event_data = {
-        "message_id": message.id,
-        "user_id": current_user.id,
-        "emoji": payload.emoji,
-    }
+    message = await _load_message_with_relations(db, message.id)
+    event_data = _serialize_reaction_event(message, user_id=current_user.id, emoji=payload.emoji)
     recipient_ids = await _channel_member_ids(db, channel)
     await publish_channel_event(
         channel.id,
@@ -261,11 +356,8 @@ async def remove_reaction(
         await db.delete(reaction)
         await db.commit()
 
-    event_data = {
-        "message_id": message.id,
-        "user_id": current_user.id,
-        "emoji": emoji,
-    }
+    message = await _load_message_with_relations(db, message.id)
+    event_data = _serialize_reaction_event(message, user_id=current_user.id, emoji=emoji)
     recipient_ids = await _channel_member_ids(db, channel)
     await publish_channel_event(
         channel.id,

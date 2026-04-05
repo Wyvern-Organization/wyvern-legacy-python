@@ -639,6 +639,56 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   width: 16px;
   height: 16px;
 }
+.panel-status-btn {
+  position: relative;
+}
+.status-dot-inline {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+  display: inline-flex;
+}
+.status-menu {
+  position: fixed;
+  z-index: 12000;
+  min-width: 188px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: #050505;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+}
+.status-option {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-2);
+  transition: background var(--transition), color var(--transition);
+}
+.status-option:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+}
+.status-option.active {
+  background: rgba(0,200,255,0.12);
+}
+.status-option-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.status-option-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.status-option-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
 
 /* ── Main Chat ── */
 .chat-main {
@@ -716,12 +766,17 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   transition: background 0.1s;
   animation: msgIn 0.2s ease both;
 }
+.msg-group.is-merged {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
 @keyframes msgIn {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .msg-group:hover { background: rgba(255,255,255,0.02); }
 .msg-group:hover .msg-actions { opacity: 1; }
+.msg-group.flash { background: rgba(0,200,255,0.12); }
 
 .msg-av {
   width: 38px;
@@ -737,6 +792,10 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   cursor: pointer;
 }
 .msg-av:hover { filter: brightness(1.15); }
+.msg-avatar-gap {
+  width: 38px;
+  flex-shrink: 0;
+}
 
 .msg-body { flex: 1; min-width: 0; }
 .msg-meta { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
@@ -761,6 +820,7 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 .badge-admin { background: rgba(243,156,18,0.2); color: #f39c12; }
 .msg-time { font-size: 11px; color: var(--text-muted); }
 .msg-text { font-size: 14px; line-height: 1.55; color: var(--text-2); word-break: break-word; }
+.msg-group.is-merged .msg-text { margin-top: 0; }
 .msg-text .mention {
   background: rgba(0,200,255,0.25);
   color: var(--hover);
@@ -789,6 +849,66 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   text-decoration-color: rgba(255,255,255,0.85);
 }
 .msg-text .edited-tag { font-size: 10px; color: var(--text-muted); margin-left: 4px; }
+
+.msg-reply-preview {
+  margin-bottom: 2px;
+  max-width: 520px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+}
+.msg-reply-preview::before {
+  content: '';
+  width: 15px;
+  height: 10px;
+  flex-shrink: 0;
+  align-self: flex-end;
+  border-left: 2px solid rgba(255,255,255,0.18);
+  border-top: 2px solid rgba(255,255,255,0.18);
+  border-top-left-radius: 10px;
+  margin-right: -1px;
+}
+.msg-reply-preview:hover::before {
+  border-color: rgba(0,200,255,0.48);
+}
+.msg-reply-avatar {
+  width: 16px;
+  height: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.32);
+}
+.msg-reply-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.msg-reply-author {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.msg-reply-snippet {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msg-reply-preview:hover .msg-reply-author {
+  color: var(--hover);
+}
+.msg-reply-preview:hover .msg-reply-snippet {
+  color: var(--text-2);
+}
 
 .link-embed {
   margin-top: 8px;
@@ -1002,6 +1122,92 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   padding: 0 16px 12px;
   flex-shrink: 0;
 }
+.composer-reply {
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0,200,255,0.18);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.composer-reply-main {
+  min-width: 0;
+  flex: 1;
+}
+.composer-reply-label {
+  font-family: var(--font-head);
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  color: var(--hover);
+  text-transform: uppercase;
+}
+.composer-reply-snippet {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-reply-close {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition), color var(--transition);
+}
+.composer-reply-close:hover {
+  background: var(--bg-4);
+  color: var(--text);
+}
+.composer-reply-close .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+.composer-attachments {
+  margin-bottom: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.composer-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  color: var(--text-2);
+  font-size: 12px;
+  transition: border-color var(--transition), background var(--transition);
+}
+.composer-attachment-chip:hover {
+  background: rgba(0,200,255,0.08);
+  border-color: rgba(0,200,255,0.24);
+}
+.composer-attachment-kind {
+  font-family: var(--font-head);
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  color: var(--hover);
+  text-transform: uppercase;
+}
+.composer-attachment-name {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-attachment-chip .ui-icon {
+  width: 12px;
+  height: 12px;
+}
 .chat-input-box {
   background: var(--bg);
   border: 1px solid transparent;
@@ -1026,6 +1232,30 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 .input-icon-btn .ui-icon {
   width: 18px;
   height: 18px;
+}
+.input-pill-btn {
+  min-width: 52px;
+  height: 30px;
+  margin-bottom: 7px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(0,200,255,0.08);
+  color: var(--hover);
+  font-family: var(--font-head);
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+  flex-shrink: 0;
+}
+.input-pill-btn:hover {
+  background: rgba(0,200,255,0.16);
+  color: var(--text);
+}
+.input-pill-btn.active {
+  background: rgba(0,200,255,0.2);
+  color: var(--text);
+  box-shadow: 0 0 0 1px rgba(0,200,255,0.25) inset;
 }
 .chat-textarea {
   flex: 1;
@@ -1833,6 +2063,7 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   padding: 7px 8px;
   border-radius: 8px;
   background: rgba(255,255,255,0.03);
+  transition: background var(--transition), box-shadow var(--transition);
 }
 .voice-user-name {
   font-size: 13px;
@@ -1840,6 +2071,46 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.voice-user.speaking {
+  background: rgba(0,200,255,0.12);
+  box-shadow: 0 0 0 1px rgba(0,200,255,0.24) inset;
+}
+.voice-speaking-indicator {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--hover);
+  font-family: var(--font-head);
+  font-size: 9px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+.voice-speaking-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+.voice-speaking-bars span {
+  width: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: voiceSpeak 0.9s ease-in-out infinite;
+}
+.voice-speaking-bars span:nth-child(1) { height: 5px; }
+.voice-speaking-bars span:nth-child(2) {
+  height: 10px;
+  animation-delay: 0.12s;
+}
+.voice-speaking-bars span:nth-child(3) {
+  height: 7px;
+  animation-delay: 0.24s;
+}
+@keyframes voiceSpeak {
+  0%, 100% { transform: scaleY(0.55); opacity: 0.55; }
+  50% { transform: scaleY(1.15); opacity: 1; }
 }
 .voice-you {
   margin-left: auto;
@@ -1853,6 +2124,57 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   padding: 12px;
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.gif-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.gif-picker-card {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.02);
+  transition: border-color var(--transition), transform 0.12s ease;
+}
+.gif-picker-card:hover {
+  border-color: rgba(0,200,255,0.28);
+  transform: translateY(-1px);
+}
+.gif-picker-card img {
+  width: 100%;
+  aspect-ratio: 1.2;
+  object-fit: cover;
+  display: block;
+  background: var(--bg-4);
+}
+.gif-picker-card-copy {
+  padding: 8px 10px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.gif-picker-card-title {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gif-picker-search {
+  margin-bottom: 12px;
+}
+.gif-picker-url {
+  margin: 12px 0 14px;
+  display: grid;
+  gap: 8px;
+}
+.gif-picker-hint {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 /* ws indicator */
@@ -2090,21 +2412,41 @@ const users = {
   update: (body) => req('PATCH', '/users/me', body),
   setPresence: (status) => req('PUT', '/users/me/presence', { status }),
   get: (id) => req('GET', `/users/${id}`),
+  getPresence: (id) => req('GET', `/users/${id}/presence`),
   lookup: (query) => req('GET', `/users/lookup?q=${encodeURIComponent(query)}`),
   directory: () => req('GET', '/users/directory'),
 };
 const userCache = new Map();
 const userFetchInFlight = new Map();
 
+async function enrichUserPresence(user) {
+  if (!user?.id) return user || null;
+  const presenceData = await users.getPresence(user.id).catch(() => null);
+  const enriched = {
+    ...(user || {}),
+    presence: presenceData?.status || user.presence || 'offline',
+  };
+  userCache.set(enriched.id, enriched);
+  return enriched;
+}
+
 async function getUserCached(userId) {
   if (!userId) return null;
   if (userCache.has(userId)) return userCache.get(userId);
   if (userFetchInFlight.has(userId)) return userFetchInFlight.get(userId);
 
-  const fetchPromise = users.get(userId)
-    .then((user) => {
-      if (user?.id) userCache.set(user.id, user);
-      return user || null;
+  const fetchPromise = Promise.all([
+      users.get(userId),
+      users.getPresence(userId).catch(() => null),
+    ])
+    .then(([user, presenceData]) => {
+      if (!user?.id) return null;
+      const enriched = {
+        ...user,
+        presence: presenceData?.status || user.presence || 'offline',
+      };
+      userCache.set(enriched.id, enriched);
+      return enriched;
     })
     .catch(() => null)
     .finally(() => userFetchInFlight.delete(userId));
@@ -2148,8 +2490,8 @@ const messages = {
     if (cursor) q += `&cursor=${cursor}`;
     return req('GET', `/messages/channels/${channelId}${q}`);
   },
-  send: (channelId, content, attachments = []) =>
-    req('POST', `/messages/channels/${channelId}`, { content, attachments }),
+  send: (channelId, content, attachments = [], replyToId = null) =>
+    req('POST', `/messages/channels/${channelId}`, { content, attachments, reply_to_id: replyToId }),
   edit: (id, content) => req('PATCH', `/messages/${id}`, { content }),
   delete: (id) => req('DELETE', `/messages/${id}`),
   addReaction: (id, emoji) => req('PUT', `/messages/${id}/reactions`, { emoji }),
@@ -2277,6 +2619,23 @@ const store = new Store({
   toast: null,
 });
 
+const PRESENCE_OPTIONS = [
+  { value: 'online', label: 'Online' },
+  { value: 'idle', label: 'Idle' },
+  { value: 'dnd', label: 'Do Not Disturb' },
+];
+
+const GIPHY_LIBRARY = [
+  { title: 'Excited', tags: ['hype', 'excited', 'celebrate'], url: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif' },
+  { title: 'Mind Blown', tags: ['wow', 'mind blown', 'shock'], url: 'https://media.giphy.com/media/3oEduOnl5IHM5NRodO/giphy.gif' },
+  { title: 'Dragon Fire', tags: ['dragon', 'fire', 'wyvern'], url: 'https://media.giphy.com/media/l41YvpiA9uMWw5AMU/giphy.gif' },
+  { title: 'Thumbs Up', tags: ['yes', 'ok', 'approve'], url: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif' },
+  { title: 'Applause', tags: ['clap', 'applause', 'nice'], url: 'https://media.giphy.com/media/5xaOcLGvzHxDKjufnLW/giphy.gif' },
+  { title: 'Laughing', tags: ['lol', 'laugh', 'funny'], url: 'https://media.giphy.com/media/10JhviFuU2gWD6/giphy.gif' },
+  { title: 'Typing', tags: ['typing', 'working', 'fast'], url: 'https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif' },
+  { title: 'Victory', tags: ['win', 'victory', 'success'], url: 'https://media.giphy.com/media/8Iv5lqKwKsZ2g/giphy.gif' },
+];
+
 function toast(message, type = 'info', duration = 3000) {
   store.set({ toast: { message, type, id: Date.now() } });
   setTimeout(() => store.set({ toast: null }), duration);
@@ -2358,7 +2717,9 @@ const HERO_ICON_PATHS = {
   chatBubble: '<path d="M7.5 8.25h5.25m-5.25 3h8.25m-8.25 3h3.75" /><path d="M6.75 21a8.966 8.966 0 0 1-4.122-.994.75.75 0 0 1-.378-.663V6.75A2.25 2.25 0 0 1 4.5 4.5h15A2.25 2.25 0 0 1 21.75 6.75v8.25a2.25 2.25 0 0 1-2.25 2.25H9.31l-2.934 3.26A.75.75 0 0 1 6.75 21Z" />',
   phone: '<path d="M2.25 4.5A2.25 2.25 0 0 1 4.5 2.25h1.372c.52 0 .973.353 1.103.856l.811 3.162a1.125 1.125 0 0 1-.417 1.164l-1.293.97a11.036 11.036 0 0 0 5.52 5.52l.97-1.293a1.125 1.125 0 0 1 1.164-.417l3.162.81c.503.13.856.584.856 1.104V19.5a2.25 2.25 0 0 1-2.25 2.25h-1.5C7.425 21.75 2.25 16.575 2.25 10.5V4.5Z" />',
   phoneXMark: '<path d="M15.75 9.75 18 12m0 0 2.25 2.25M18 12l2.25-2.25M18 12l-2.25 2.25" /><path d="M2.25 4.5A2.25 2.25 0 0 1 4.5 2.25h1.372c.52 0 .973.353 1.103.856l.811 3.162a1.125 1.125 0 0 1-.417 1.164l-1.293.97a11.036 11.036 0 0 0 5.52 5.52l.97-1.293a1.125 1.125 0 0 1 1.164-.417l1.518.39M17.25 19.5a2.25 2.25 0 0 1-2.25 2.25h-1.5C7.425 21.75 2.25 16.575 2.25 10.5V4.5" />',
-  magnifyingGlass: '<path d="m21 21-4.35-4.35m0 0A7.5 7.5 0 1 0 6 6a7.5 7.5 0 0 0 10.65 10.65Z" />'
+  magnifyingGlass: '<path d="m21 21-4.35-4.35m0 0A7.5 7.5 0 1 0 6 6a7.5 7.5 0 0 0 10.65 10.65Z" />',
+  xMark: '<path d="M6 18 18 6M6 6l12 12" />',
+  arrowUturnLeft: '<path d="M9 14.25H5.25m0 0L9 18m-3.75-3.75L9 10.5" /><path d="M5.25 14.25h7.875a4.875 4.875 0 1 0 0-9.75H9.75" />'
 };
 
 function heroIcon(name, { size = 18, className = '', solid = false } = {}) {
@@ -2415,6 +2776,11 @@ function initials(name = '') {
 function displayName(user) {
   if (!user) return 'Unknown';
   return user.display_name || user.username || 'Unknown';
+}
+
+function presenceLabel(status = 'online') {
+  const found = PRESENCE_OPTIONS.find((item) => item.value === status);
+  return found?.label || 'Offline';
 }
 
 function usernameTag(user) {
@@ -2597,6 +2963,28 @@ function shouldRenderLinkEmbed(url = '') {
   return mediaKind(normalized) === 'file';
 }
 
+function isGifUrl(url = '') {
+  const normalized = normalizeNavigableUrl(url) || String(url || '').trim();
+  const lower = normalized.toLowerCase();
+  return /\.gif($|\?)/.test(lower)
+    || lower.includes('media.giphy.com/media/')
+    || lower.includes('media.tenor.com/');
+}
+
+function messagePreviewText(message, maxLength = 90) {
+  const source = typeof message === 'string' ? message : String(message?.content || '').trim();
+  const attachments = Array.isArray(message?.attachments) ? message.attachments.map(toAttachmentObj).filter(Boolean) : [];
+  let preview = source;
+  if (!preview) {
+    if (attachments.some((item) => isGifUrl(item.url))) preview = 'GIF';
+    else if (attachments.length === 1) preview = attachments[0].filename || 'Attachment';
+    else if (attachments.length > 1) preview = `${attachments.length} attachments`;
+    else preview = 'Message';
+  }
+  if (preview.length <= maxLength) return preview;
+  return `${preview.slice(0, maxLength).trim()}...`;
+}
+
 function formatLinkTitle(url = '') {
   try {
     const parsed = new URL(url);
@@ -2693,6 +3081,96 @@ function showModal({ title, placeholder, onConfirm, confirmLabel = 'Create' }) {
   document.body.appendChild(overlay);
   setTimeout(() => input.focus(), 50);
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+function showGifPicker({ onSelect }) {
+  const overlay = el('div', { class: 'modal-overlay' });
+  const modal = el('div', { class: 'modal directory-modal' });
+  const head = el('div', { class: 'directory-head' },
+    el('div', { class: 'directory-title' }, 'GIPHY'),
+    el('div', { class: 'directory-subtitle' }, 'Pick a built-in GIF or paste a direct GIF URL.'),
+  );
+
+  const search = el('input', {
+    class: 'directory-search gif-picker-search',
+    type: 'text',
+    placeholder: 'Search GIFs...',
+  });
+  const directUrl = el('input', {
+    class: 'directory-search',
+    type: 'text',
+    placeholder: 'https://media.giphy.com/.../giphy.gif',
+  });
+  const urlHelp = el('div', { class: 'gif-picker-hint' }, 'Direct `.gif` links from Giphy or Tenor work too.');
+  const customActions = el('div', { class: 'modal-actions' });
+  const useUrlBtn = el('button', {
+    class: 'btn-soft',
+    type: 'button',
+    onClick: () => {
+      const nextUrl = normalizeNavigableUrl(directUrl.value || '');
+      if (!nextUrl || !isGifUrl(nextUrl)) {
+        toast('Paste a direct GIF URL ending in .gif', 'error');
+        return;
+      }
+      onSelect(nextUrl);
+      overlay.remove();
+    },
+  }, 'Use URL');
+  customActions.appendChild(useUrlBtn);
+
+  const list = el('div', { class: 'gif-picker-grid' });
+  const body = el('div', { class: 'directory-body' },
+    search,
+    el('div', { class: 'gif-picker-url' }, directUrl, urlHelp, customActions),
+    list,
+  );
+  const actions = el('div', { class: 'modal-actions' },
+    el('button', { class: 'btn-ghost', type: 'button', onClick: () => overlay.remove() }, 'Close'),
+  );
+
+  modal.append(head, body, actions);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  function renderGifCards() {
+    const query = (search.value || '').trim().toLowerCase();
+    const items = GIPHY_LIBRARY.filter((item) => {
+      const haystack = `${item.title} ${(item.tags || []).join(' ')}`.toLowerCase();
+      return !query || haystack.includes(query);
+    });
+
+    list.innerHTML = '';
+    if (!items.length) {
+      list.appendChild(el('div', { class: 'directory-empty' }, 'No GIFs matched that search.'));
+      return;
+    }
+
+    for (const item of items) {
+      const card = el('button', {
+        class: 'gif-picker-card',
+        type: 'button',
+        onClick: () => {
+          onSelect(item.url);
+          overlay.remove();
+        },
+      },
+        el('img', { src: item.url, alt: item.title, loading: 'lazy' }),
+        el('div', { class: 'gif-picker-card-copy' },
+          el('div', { class: 'gif-picker-card-title' }, item.title),
+          el('span', { class: 'dir-pill' }, 'GIF'),
+        )
+      );
+      list.appendChild(card);
+    }
+  }
+
+  search.addEventListener('input', renderGifCards);
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) overlay.remove();
+  });
+
+  renderGifCards();
+  window.setTimeout(() => search.focus(), 30);
 }
 
 function showChannelCreateModal({
@@ -3416,20 +3894,71 @@ function wsDot(connected) {
 }
 
 
-function MessageList(channelId) {
+function MessageList(channelId, { onReply = null } = {}) {
   const root = el('div', { class: 'messages-scroll' });
   let msgList = [];
   let cursor = null;
   let hasMore = false;
 
   async function enrichAuthors(items) {
-    const uniqueIds = [...new Set((items || []).map(m => m?.author_id).filter(Boolean))];
-    await Promise.all(uniqueIds.map(id => getUserCached(id)));
+    const uniqueIds = [...new Set(
+      (items || []).flatMap((msg) => [msg?.author_id, msg?.reply_to?.author_id]).filter(Boolean)
+    )];
+    await Promise.all(uniqueIds.map((id) => getUserCached(id)));
     for (const msg of (items || [])) {
       if (!msg.author && msg.author_id && userCache.has(msg.author_id)) {
         msg.author = userCache.get(msg.author_id);
       }
+      if (msg.reply_to && !msg.reply_to.author && msg.reply_to.author_id && userCache.has(msg.reply_to.author_id)) {
+        msg.reply_to.author = userCache.get(msg.reply_to.author_id);
+      }
     }
+  }
+
+  function normalizeReactions(items) {
+    if (!Array.isArray(items)) return [];
+    return items
+      .map((reaction) => {
+        if (!reaction?.emoji) return null;
+        const users = [...new Set((reaction.users || []).map((id) => Number(id)).filter((id) => Number.isFinite(id)))];
+        const count = Number(reaction.count || users.length || 0);
+        return {
+          emoji: reaction.emoji,
+          users,
+          count: count || users.length || 1,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b.count - a.count) || a.emoji.localeCompare(b.emoji));
+  }
+
+  function hydrateMessageState(message, previous = null) {
+    if (!message) return previous;
+    const next = { ...(previous || {}), ...message };
+    next.attachments = Array.isArray(next.attachments) ? next.attachments : [];
+    next.reactions = normalizeReactions(next.reactions ?? previous?.reactions ?? []);
+
+    if (previous?.author && !next.author) {
+      next.author = previous.author;
+    }
+
+    if (next.reply_to) {
+      next.reply_to = { ...(previous?.reply_to || {}), ...next.reply_to };
+      next.reply_to.attachments = Array.isArray(next.reply_to.attachments) ? next.reply_to.attachments : [];
+      if (previous?.reply_to?.author && !next.reply_to.author) {
+        next.reply_to.author = previous.reply_to.author;
+      }
+    }
+
+    return next;
+  }
+
+  function empty() {
+    return el('div', { class: 'empty-channel' },
+      el('div', { class: 'empty-icon' }, heroIcon('chatBubble', { size: 48 })),
+      el('h4', {}, 'No messages yet'),
+      el('p', {}, 'Be the first to say something!')
+    );
   }
 
   async function load(initial = false) {
@@ -3439,7 +3968,7 @@ function MessageList(channelId) {
     }
     try {
       const data = await msgApi.list(channelId, initial ? null : cursor);
-      const arr = Array.isArray(data) ? data : (data.items || data.messages || []);
+      const arr = (Array.isArray(data) ? data : (data.items || data.messages || [])).map((msg) => hydrateMessageState(msg));
       const nextCursor = Array.isArray(data) ? null : (data.next_cursor ?? null);
       await enrichAuthors(arr);
       if (initial) {
@@ -3460,45 +3989,6 @@ function MessageList(channelId) {
     }
   }
 
-  function renderAll() {
-    const scrollBottom = root.scrollHeight - root.scrollTop - root.clientHeight;
-    root.innerHTML = '';
-
-    if (hasMore) {
-      const loadBtn = el(
-        'button',
-        { class: 'load-more-btn', onClick: () => load(false) },
-        heroIcon('arrowUp', { size: 14 }),
-        el('span', {}, 'Load earlier messages'),
-      );
-      root.appendChild(loadBtn);
-    }
-
-    if (!msgList.length) {
-      root.appendChild(empty());
-      return;
-    }
-
-    let lastDate = null;
-    for (const msg of msgList) {
-      if (!sameDay(lastDate, msg.created_at)) {
-        root.appendChild(el('div', { class: 'msg-day-divider' }, fmtDate(msg.created_at)));
-        lastDate = msg.created_at;
-      }
-      root.appendChild(msgRow(msg));
-    }
-
-    if (scrollBottom < 80) root.scrollTop = root.scrollHeight;
-  }
-
-  function empty() {
-    return el('div', { class: 'empty-channel' },
-      el('div', { class: 'empty-icon' }, heroIcon('chatBubble', { size: 48 })),
-      el('h4', {}, 'No messages yet'),
-      el('p', {}, 'Be the first to say something!')
-    );
-  }
-
   function bindMessageLinkClicks(container) {
     for (const linkEl of container.querySelectorAll('a.msg-link')) {
       linkEl.addEventListener('click', (event) => {
@@ -3510,18 +4000,72 @@ function MessageList(channelId) {
     }
   }
 
-  function msgRow(msg) {
+  function shouldMergeWithPrevious(previous, current) {
+    if (!previous || !current) return false;
+    if (Number(previous.author_id) !== Number(current.author_id)) return false;
+    if (!sameDay(previous.created_at, current.created_at)) return false;
+    if (previous.reply_to_id || current.reply_to_id) return false;
+    const delta = Math.abs(new Date(current.created_at) - new Date(previous.created_at));
+    return delta < 5 * 60 * 1000;
+  }
+
+  function jumpToMessage(messageId) {
+    const target = root.querySelector(`[data-message-id="${messageId}"]`);
+    if (!target) {
+      toast('The original message is outside the loaded history.', 'info');
+      return;
+    }
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.remove('flash');
+    void target.offsetWidth;
+    target.classList.add('flash');
+    setTimeout(() => target.classList.remove('flash'), 1200);
+  }
+
+  function createReplyPreview(message) {
+    if (!message) return null;
+    const replyAuthor = message.author || userCache.get(message.author_id) || { username: 'Unknown', id: message.author_id };
+    const replyLabel = displayName(replyAuthor);
+    return el('button', {
+      class: 'msg-reply-preview',
+      type: 'button',
+      onClick: (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        jumpToMessage(message.id);
+      },
+    },
+      avatarEl(replyLabel, 'msg-reply-avatar', 16, replyAuthor.avatar),
+      el('div', { class: 'msg-reply-line' },
+        el('span', { class: 'msg-reply-author' }, replyLabel),
+        el('span', { class: 'msg-reply-snippet' }, messagePreviewText(message, 72)),
+      )
+    );
+  }
+
+  async function syncReactionState(payload) {
+    const updatedMessage = payload?.message || null;
+    if (updatedMessage?.id) {
+      const updated = root.updateMessage(updatedMessage);
+      if (updated) return;
+    }
+    await load(true);
+  }
+
+  function msgRow(msg, { merged = false } = {}) {
     const me = store.state.user;
     const isMe = me && msg.author_id === me.id;
     const author = msg.author || userCache.get(msg.author_id) || { username: 'Unknown', id: msg.author_id };
     const authorLabel = displayName(author);
 
-    const av = avatarEl(authorLabel, 'msg-av', 40, author.avatar);
+    const avatarNode = merged
+      ? el('div', { class: 'msg-avatar-gap' })
+      : avatarEl(authorLabel, 'msg-av', 40, author.avatar);
 
     const metaEl = el('div', { class: 'msg-meta' });
     const nameEl = el('span', {
       class: `msg-author${isMe ? ' is-self' : ''}`,
-      onClick: () => {}
+      onClick: () => {},
     }, authorLabel);
     const timeEl = el('span', { class: 'msg-time' }, fmtTime(msg.created_at));
     metaEl.append(nameEl, timeEl);
@@ -3530,8 +4074,8 @@ function MessageList(channelId) {
       .map(toAttachmentObj)
       .filter(Boolean);
     const extractedUrls = extractMediaUrls(msg.content || '');
-      for (const mediaUrl of extractedUrls) {
-      if (!normalizedAttachments.find(a => a.url === mediaUrl)) {
+    for (const mediaUrl of extractedUrls) {
+      if (!normalizedAttachments.find((item) => item.url === mediaUrl)) {
         normalizedAttachments.push(toAttachmentObj(mediaUrl));
       }
     }
@@ -3541,11 +4085,15 @@ function MessageList(channelId) {
       contentText = contentText.replace(att.url, '').replace(/\s{2,}/g, ' ').trim();
     }
 
+    const body = el('div', { class: 'msg-body' });
+    const replyPreviewEl = createReplyPreview(msg.reply_to);
+    if (replyPreviewEl) body.appendChild(replyPreviewEl);
+    if (!merged) body.appendChild(metaEl);
+
     const textEl = el('div', { class: 'msg-text', html: renderContent(contentText) });
     bindMessageLinkClicks(textEl);
     if (msg.edited_at) textEl.appendChild(el('span', { class: 'edited-tag' }, '(edited)'));
-
-    const body = el('div', { class: 'msg-body' }, metaEl, textEl);
+    body.appendChild(textEl);
 
     const embedLinks = extractHttpLinks(contentText)
       .filter(shouldRenderLinkEmbed)
@@ -3555,7 +4103,6 @@ function MessageList(channelId) {
       if (embed) body.appendChild(embed);
     }
 
-    // Attachments
     if (normalizedAttachments.length) {
       for (const att of normalizedAttachments) {
         const kind = mediaKind(att.url);
@@ -3590,53 +4137,97 @@ function MessageList(channelId) {
             )
           );
         }
-        const attEl = el('div', { class: 'msg-attachment' }, contentNode);
-        body.appendChild(attEl);
+        body.appendChild(el('div', { class: 'msg-attachment' }, contentNode));
       }
     }
 
-    // Reactions
     if (msg.reactions?.length) {
       const reactRow = el('div', { class: 'msg-reactions' });
-      for (const r of msg.reactions) {
+      for (const reaction of msg.reactions) {
         const chip = el('div', {
-          class: `reaction-chip${r.users?.includes(me?.id) ? ' mine' : ''}`,
+          class: `reaction-chip${reaction.users?.includes(me?.id) ? ' mine' : ''}`,
           onClick: async () => {
             try {
-              if (r.users?.includes(me?.id)) {
-                await msgApi.removeReaction(msg.id, r.emoji);
-              } else {
-                await msgApi.addReaction(msg.id, r.emoji);
-              }
-              await load(true);
-            } catch {}
-          }
+              const payload = reaction.users?.includes(me?.id)
+                ? await msgApi.removeReaction(msg.id, reaction.emoji)
+                : await msgApi.addReaction(msg.id, reaction.emoji);
+              await syncReactionState(payload);
+            } catch (error) {
+              toast(error?.message || 'Could not update reaction', 'error');
+            }
+          },
         },
-          el('span', {}, r.emoji),
-          el('span', { class: 'rc-count' }, String(r.count || r.users?.length || 1))
+          el('span', {}, reaction.emoji),
+          el('span', { class: 'rc-count' }, String(reaction.count || reaction.users?.length || 1))
         );
         reactRow.appendChild(chip);
       }
       body.appendChild(reactRow);
     }
 
-    // Actions (on hover)
     const actions = el('div', { class: 'msg-actions' });
-    const emojiBtn = el('button', { class: 'act-btn', title: 'React', onClick: () => quickReact(msg) }, heroIcon('faceSmile', { size: 16 }));
-    actions.appendChild(emojiBtn);
+    actions.appendChild(
+      el('button', {
+        class: 'act-btn',
+        title: 'Reply',
+        onClick: (event) => {
+          event.stopPropagation();
+          onReply?.(msg);
+        },
+      }, heroIcon('arrowUturnLeft', { size: 16 }))
+    );
+    actions.appendChild(
+      el('button', { class: 'act-btn', title: 'React', onClick: () => quickReact(msg) }, heroIcon('faceSmile', { size: 16 }))
+    );
 
     if (isMe) {
       const editBtn = el('button', { class: 'act-btn', title: 'Edit', onClick: () => startEdit(msg, body) }, heroIcon('pencilSquare', { size: 16 }));
       const delBtn  = el('button', { class: 'act-btn danger', title: 'Delete', onClick: async () => {
         await msgApi.delete(msg.id);
-        msgList = msgList.filter(m => m.id !== msg.id);
+        msgList = msgList.filter((item) => item.id !== msg.id);
         renderAll();
       }}, heroIcon('trash', { size: 16 }));
       actions.append(editBtn, delBtn);
     }
 
-    const group = el('div', { class: 'msg-group' }, av, body, actions);
-    return group;
+    return el('div', {
+      class: `msg-group${merged ? ' is-merged' : ''}`,
+      'data-message-id': String(msg.id),
+    }, avatarNode, body, actions);
+  }
+
+  function renderAll() {
+    const scrollBottom = root.scrollHeight - root.scrollTop - root.clientHeight;
+    root.innerHTML = '';
+
+    if (hasMore) {
+      const loadBtn = el(
+        'button',
+        { class: 'load-more-btn', onClick: () => load(false) },
+        heroIcon('arrowUp', { size: 14 }),
+        el('span', {}, 'Load earlier messages'),
+      );
+      root.appendChild(loadBtn);
+    }
+
+    if (!msgList.length) {
+      root.appendChild(empty());
+      return;
+    }
+
+    let lastDate = null;
+    let previousMessage = null;
+    for (const msg of msgList) {
+      if (!sameDay(lastDate, msg.created_at)) {
+        root.appendChild(el('div', { class: 'msg-day-divider' }, fmtDate(msg.created_at)));
+        lastDate = msg.created_at;
+        previousMessage = null;
+      }
+      root.appendChild(msgRow(msg, { merged: shouldMergeWithPrevious(previousMessage, msg) }));
+      previousMessage = msg;
+    }
+
+    if (scrollBottom < 80) root.scrollTop = root.scrollHeight;
   }
 
   function quickReact(msg) {
@@ -3649,9 +4240,11 @@ function MessageList(channelId) {
           e.stopPropagation();
           picker.remove();
           try {
-            await msgApi.addReaction(msg.id, emoji);
-            await load(true);
-          } catch {}
+            const payload = await msgApi.addReaction(msg.id, emoji);
+            await syncReactionState(payload);
+          } catch (error) {
+            toast(error?.message || 'Could not add reaction', 'error');
+          }
         }
       }, emoji);
       btn.style.cssText = 'font-size:18px;padding:4px;border-radius:6px;cursor:pointer;background:none;border:none;transition:background 0.1s';
@@ -3660,11 +4253,15 @@ function MessageList(channelId) {
       picker.appendChild(btn);
     }
     document.body.appendChild(picker);
-    const rect = document.body.getBoundingClientRect();
     picker.style.top = '50%';
     picker.style.left = '50%';
     picker.style.transform = 'translate(-50%,-50%)';
-    const close = (e) => { if (!picker.contains(e.target)) { picker.remove(); document.removeEventListener('click', close); } };
+    const close = (e) => {
+      if (!picker.contains(e.target)) {
+        picker.remove();
+        document.removeEventListener('click', close);
+      }
+    };
     setTimeout(() => document.addEventListener('click', close), 0);
   }
 
@@ -3692,34 +4289,46 @@ function MessageList(channelId) {
           bindMessageLinkClicks(newText);
           newText.appendChild(el('span', { class: 'edited-tag' }, '(edited)'));
           body.replaceChild(newText, inp);
-        } catch { body.replaceChild(oldText, inp); }
+        } catch {
+          body.replaceChild(oldText, inp);
+        }
       }
-      if (e.key === 'Escape') { body.replaceChild(oldText, inp); }
+      if (e.key === 'Escape') {
+        body.replaceChild(oldText, inp);
+      }
     });
   }
 
-  // Public API
   root.addMessage = (msg) => {
-    msgList.push(msg);
+    const next = hydrateMessageState(msg);
+    const idx = msgList.findIndex((item) => item.id === next?.id);
+    if (idx >= 0) {
+      msgList[idx] = hydrateMessageState(next, msgList[idx]);
+    } else {
+      msgList.push(next);
+    }
     renderAll();
-    enrichAuthors([msg]).then(() => renderAll());
+    enrichAuthors([next]).then(() => renderAll());
   };
 
   root.updateMessage = (msg) => {
-    const idx = msgList.findIndex(m => m.id === msg.id);
+    const idx = msgList.findIndex((item) => item.id === msg.id);
     if (idx >= 0) {
-      msgList[idx] = msg;
+      const next = hydrateMessageState(msg, msgList[idx]);
+      msgList[idx] = next;
       renderAll();
-      enrichAuthors([msg]).then(() => renderAll());
+      enrichAuthors([next]).then(() => renderAll());
+      return true;
     }
+    return false;
   };
 
   root.deleteMessage = (id) => {
-    msgList = msgList.filter(m => m.id !== id);
+    msgList = msgList.filter((msg) => msg.id !== id);
     renderAll();
   };
 
-  root.addReaction = (msgId) => { load(true); };
+  root.addReaction = (payload) => { void syncReactionState(payload); };
 
   load(true);
   return root;
@@ -3798,8 +4407,7 @@ function AuthView() {
           await auth.register(username, email, password, displayName || null);
           await auth.login(email, password);
         }
-        const me = await users.me();
-        if (me?.id) userCache.set(me.id, me);
+        const me = await enrichUserPresence(await users.me());
         store.set({ user: me, isAuthed: true, view: 'app' });
       } catch (err) {
         errEl.textContent = err?.message || 'Something went wrong. Please try again.';
@@ -3848,6 +4456,9 @@ function AppView() {
   const memberSidebar = el('div', { class: 'member-sidebar' });
 
   root.append(iconSidebar, chanSidebar, chatMain, memberSidebar);
+  let composerEl = null;
+  let statusMenuEl = null;
+  let statusMenuCleanup = null;
 
   const voiceState = {
     joinedChannelId: null,
@@ -3855,9 +4466,221 @@ function AppView() {
     peers: new Map(), // user_id -> RTCPeerConnection
     peerMeta: new Map(), // user_id -> { pendingIce: RTCIceCandidateInit[], retryTimer: number | null, retries: number }
     remoteAudioEls: new Map(), // user_id -> HTMLAudioElement
+    audioContext: null,
+    speakingMeters: new Map(), // user_id -> meter metadata
+    speakingUsers: new Set(),
+    speakingPollTimer: null,
     muted: false,
     statusPollTimer: null,
   };
+
+  function closeStatusMenu() {
+    if (statusMenuCleanup) {
+      document.removeEventListener('mousedown', statusMenuCleanup);
+      statusMenuCleanup = null;
+    }
+    if (!statusMenuEl) return;
+    statusMenuEl.remove();
+    statusMenuEl = null;
+  }
+
+  function applyPresenceLocally(userId, status) {
+    const normalizedUserId = Number(userId || 0);
+    if (!normalizedUserId) return;
+
+    userCache.set(normalizedUserId, {
+      ...(userCache.get(normalizedUserId) || {}),
+      id: normalizedUserId,
+      presence: status,
+    });
+
+    const nextMembers = {};
+    for (const [serverId, members] of Object.entries(store.state.members || {})) {
+      nextMembers[serverId] = (members || []).map((member) => {
+        if (Number(member.user_id) !== normalizedUserId) return member;
+        return {
+          ...member,
+          user: { ...(member.user || {}), presence: status },
+        };
+      });
+    }
+
+    const nextDmList = (store.state.dmList || []).map((dm) => {
+      if (!Array.isArray(dm?.participants)) return dm;
+      return {
+        ...dm,
+        participants: dm.participants.map((participant) =>
+          Number(participant?.id) === normalizedUserId
+            ? { ...(participant || {}), presence: status }
+            : participant
+        ),
+      };
+    });
+
+    const nextUser = Number(store.state.user?.id) === normalizedUserId
+      ? { ...(store.state.user || {}), presence: status }
+      : store.state.user;
+
+    store.set({ user: nextUser, members: nextMembers, dmList: nextDmList });
+    renderIconSidebar();
+    renderChanSidebar();
+    renderMemberSidebar();
+    renderChatMain();
+  }
+
+  function showPresenceMenu(anchorEl) {
+    closeStatusMenu();
+    const rect = anchorEl.getBoundingClientRect();
+    const menu = el('div', { class: 'status-menu' });
+    statusMenuEl = menu;
+
+    for (const option of PRESENCE_OPTIONS) {
+      const isActive = (store.state.user?.presence || 'online') === option.value;
+      const btn = el('button', {
+        class: `status-option${isActive ? ' active' : ''}`,
+        type: 'button',
+        onClick: async () => {
+          try {
+            await users.setPresence(option.value);
+            applyPresenceLocally(store.state.user?.id, option.value);
+            closeStatusMenu();
+          } catch (err) {
+            toast(err?.message || 'Could not update status', 'error');
+          }
+        },
+      },
+        el('span', { class: `status-dot-inline s-${option.value}` }),
+        el('span', { class: 'status-option-copy' },
+          el('span', { class: 'status-option-label' }, option.label),
+          el('span', { class: 'status-option-sub' }, option.value === 'dnd' ? 'Pause interruptions' : 'Show your availability'),
+        )
+      );
+      menu.appendChild(btn);
+    }
+
+    menu.style.top = `${Math.max(12, rect.top - 8 - (PRESENCE_OPTIONS.length * 52))}px`;
+    menu.style.left = `${Math.max(12, rect.left - 72)}px`;
+    document.body.appendChild(menu);
+
+    const handleOutside = (event) => {
+      if (!menu.contains(event.target) && event.target !== anchorEl) {
+        closeStatusMenu();
+      }
+    };
+
+    statusMenuCleanup = handleOutside;
+    setTimeout(() => document.addEventListener('mousedown', handleOutside), 0);
+  }
+
+  function refreshVoiceSpeakingUI() {
+    const activeVoiceView = chatMain.querySelector('.voice-view');
+    if (!activeVoiceView) return;
+
+    for (const row of activeVoiceView.querySelectorAll('.voice-user[data-user-id]')) {
+      const userId = Number(row.getAttribute('data-user-id') || 0);
+      const speaking = voiceState.speakingUsers.has(userId);
+      row.classList.toggle('speaking', speaking);
+      const indicator = row.querySelector('.voice-speaking-indicator');
+      if (indicator) indicator.hidden = !speaking;
+    }
+  }
+
+  async function ensureVoiceAudioContext() {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!voiceState.audioContext || voiceState.audioContext.state === 'closed') {
+      voiceState.audioContext = new AudioCtx();
+    }
+    if (voiceState.audioContext.state === 'suspended') {
+      await voiceState.audioContext.resume().catch(() => {});
+    }
+    return voiceState.audioContext;
+  }
+
+  function setVoiceSpeaking(userId, speaking) {
+    const normalized = Number(userId || 0);
+    if (!normalized) return;
+    const currentlySpeaking = voiceState.speakingUsers.has(normalized);
+    if (speaking === currentlySpeaking) return;
+    if (speaking) voiceState.speakingUsers.add(normalized);
+    else voiceState.speakingUsers.delete(normalized);
+    refreshVoiceSpeakingUI();
+  }
+
+  function stopVoiceMeterPolling() {
+    if (!voiceState.speakingPollTimer) return;
+    clearInterval(voiceState.speakingPollTimer);
+    voiceState.speakingPollTimer = null;
+  }
+
+  function startVoiceMeterPolling() {
+    if (voiceState.speakingPollTimer || !voiceState.speakingMeters.size) return;
+    voiceState.speakingPollTimer = setInterval(() => {
+      for (const [userId, meter] of voiceState.speakingMeters.entries()) {
+        if (!meter?.analyser || !meter?.data) continue;
+        if (Number(userId) === Number(store.state.user?.id || 0) && voiceState.muted) {
+          meter.hotTicks = 0;
+          meter.coolTicks = 10;
+          setVoiceSpeaking(userId, false);
+          continue;
+        }
+
+        meter.analyser.getByteTimeDomainData(meter.data);
+        let sum = 0;
+        for (const sample of meter.data) {
+          const centered = (sample - 128) / 128;
+          sum += centered * centered;
+        }
+        const rms = Math.sqrt(sum / meter.data.length);
+        const threshold = Number(userId) === Number(store.state.user?.id || 0) ? 0.045 : 0.03;
+
+        if (rms >= threshold) {
+          meter.hotTicks = (meter.hotTicks || 0) + 1;
+          meter.coolTicks = 0;
+          if (meter.hotTicks >= 2) setVoiceSpeaking(userId, true);
+        } else {
+          meter.coolTicks = (meter.coolTicks || 0) + 1;
+          meter.hotTicks = 0;
+          if (meter.coolTicks >= 4) setVoiceSpeaking(userId, false);
+        }
+      }
+    }, 150);
+  }
+
+  function removeVoiceMeter(userId) {
+    const normalized = Number(userId || 0);
+    const meter = voiceState.speakingMeters.get(normalized);
+    if (!meter) return;
+    try { meter.source.disconnect(); } catch {}
+    try { meter.analyser.disconnect(); } catch {}
+    voiceState.speakingMeters.delete(normalized);
+    setVoiceSpeaking(normalized, false);
+    if (!voiceState.speakingMeters.size) stopVoiceMeterPolling();
+  }
+
+  async function attachVoiceMeter(userId, stream) {
+    const normalized = Number(userId || 0);
+    if (!normalized || !stream) return;
+    const context = await ensureVoiceAudioContext();
+    if (!context) return;
+
+    removeVoiceMeter(normalized);
+
+    const source = context.createMediaStreamSource(stream);
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.72;
+    source.connect(analyser);
+
+    voiceState.speakingMeters.set(normalized, {
+      source,
+      analyser,
+      data: new Uint8Array(analyser.fftSize),
+      hotTicks: 0,
+      coolTicks: 0,
+    });
+    startVoiceMeterPolling();
+  }
 
   function supportsVoiceCalling() {
     return !!(window.RTCPeerConnection && navigator.mediaDevices?.getUserMedia);
@@ -3949,15 +4772,12 @@ function AppView() {
       authorName = displayName(cached || { username: 'Unknown' });
     }
 
-    const content = String(message.content || '').trim();
-    const preview = content
-      ? content.slice(0, 120)
-      : ((message.attachments?.length || 0) > 0 ? 'Sent an attachment' : 'Sent a message');
+    const preview = messagePreviewText(message, 120);
     const channelLabel = resolveChannelLabel(message.channel_id);
 
     pushNotification({
       title: 'New Message',
-      body: `${authorName}: ${preview}${preview.length >= 120 ? '...' : ''}`,
+      body: `${authorName}: ${preview}`,
       meta: channelLabel,
       duration: 15000,
       onClick: () => openChannelFromNotification(message.channel_id),
@@ -4037,6 +4857,7 @@ function AppView() {
   function destroyRemoteAudioElement(userId) {
     const audio = voiceState.remoteAudioEls.get(userId);
     if (!audio) return;
+    removeVoiceMeter(userId);
     try {
       if (audio.srcObject && typeof audio.srcObject.getTracks === 'function') {
         for (const track of audio.srcObject.getTracks()) track.stop();
@@ -4064,6 +4885,7 @@ function AppView() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     voiceState.localStream = stream;
     voiceState.muted = false;
+    await attachVoiceMeter(store.state.user?.id, stream);
     return stream;
   }
 
@@ -4103,6 +4925,7 @@ function AppView() {
       const audio = ensureRemoteAudioElement(remoteUserId);
       audio.srcObject = stream;
       audio.play().catch(() => {});
+      attachVoiceMeter(remoteUserId, stream).catch(() => {});
     };
 
     peer.onconnectionstatechange = () => {
@@ -4226,6 +5049,7 @@ function AppView() {
     voiceState.peers.clear();
 
     if (voiceState.localStream) {
+      removeVoiceMeter(store.state.user?.id);
       for (const track of voiceState.localStream.getTracks()) {
         try { track.stop(); } catch {}
       }
@@ -4234,6 +5058,15 @@ function AppView() {
 
     voiceState.joinedChannelId = null;
     voiceState.muted = false;
+    voiceState.speakingUsers.clear();
+    stopVoiceMeterPolling();
+    for (const userId of Array.from(voiceState.speakingMeters.keys())) {
+      removeVoiceMeter(userId);
+    }
+    if (voiceState.audioContext && voiceState.audioContext.state !== 'closed') {
+      voiceState.audioContext.close().catch(() => {});
+    }
+    voiceState.audioContext = null;
     store.set({ activeVoiceChannelId: null });
     renderChatMain();
   }
@@ -4279,6 +5112,8 @@ function AppView() {
     for (const track of voiceState.localStream.getAudioTracks()) {
       track.enabled = !voiceState.muted;
     }
+    if (voiceState.muted) setVoiceSpeaking(store.state.user?.id, false);
+    refreshVoiceSpeakingUI();
     renderChatMain();
   }
 
@@ -4336,6 +5171,9 @@ function AppView() {
       // subscribe to active channel
       const { activeChannelId } = store.state;
       if (activeChannelId) socket.subscribe([activeChannelId]);
+      if (store.state.user?.presence && store.state.user.presence !== 'online') {
+        socket.send({ action: 'presence', status: store.state.user.presence });
+      }
       if (voiceState.joinedChannelId) {
         socket.send({ action: 'join_voice', channel_id: Number(voiceState.joinedChannelId) });
         socket.send({ action: 'voice.status', channel_id: Number(voiceState.joinedChannelId) });
@@ -4349,6 +5187,9 @@ function AppView() {
     }
 
     switch (event.event) {
+      case 'presence.updated':
+        applyPresenceLocally(store.state.user?.id, event.data?.status || 'online');
+        break;
       case 'message.created':
         if (event.data?.author_id !== store.state.user?.id) {
           void notifyIncomingMessage(event.data);
@@ -4369,7 +5210,9 @@ function AppView() {
         break;
       case 'reaction.added':
       case 'reaction.removed':
-        if (msgListEl) msgListEl.addReaction(event.data?.message_id);
+        if (msgListEl && Number(event.data?.channel_id || event.channel_id) === Number(store.state.activeChannelId)) {
+          msgListEl.addReaction(event.data);
+        }
         break;
       case 'dm.created': {
         if (event.data?.id) {
@@ -4898,20 +5741,31 @@ function AppView() {
   }
 
   function renderUserPanel(parent) {
+    closeStatusMenu();
     const { user } = store.state;
     if (!user) return;
 
     const panel = el('div', { class: 'user-panel' });
+    const currentPresence = user.presence || 'online';
     const label = displayName(user);
     const av = avatarEl(label, 'user-av', 32, user.avatar);
     av.style.background = avatarColor(label);
-    const dot = el('div', { class: `status-ring s-online` });
+    const dot = el('div', { class: `status-ring s-${currentPresence}` });
     av.appendChild(dot);
 
     const info = el('div', { class: 'user-info-mini' },
       el('div', { class: 'uname' }, label),
-      el('div', { class: 'utag' }, usernameTag(user))
+      el('div', { class: 'utag' }, `${usernameTag(user)} • ${presenceLabel(currentPresence)}`)
     );
+
+    const statusBtn = el('button', {
+      class: 'panel-btn panel-status-btn',
+      title: `Set status (${presenceLabel(currentPresence)})`,
+      onClick: (event) => {
+        event.stopPropagation();
+        showPresenceMenu(event.currentTarget);
+      },
+    }, el('span', { class: `status-dot-inline s-${currentPresence}` }));
 
     const editBtn = el('button', { class: 'panel-btn', title: 'Edit Profile', onClick: async () => {
       showSettingsModal({
@@ -4932,12 +5786,13 @@ function AppView() {
         saveLabel: 'Save Profile',
         requireName: false,
         onSave: async ({ name, icon, details, toggle }) => {
-          const updated = await users.update({
+          const updatedBase = await users.update({
             display_name: name || null,
             bio: details || null,
             avatar: icon,
             directory_opt_in: !!toggle,
           });
+          const updated = { ...(updatedBase || {}), presence: store.state.user?.presence || currentPresence };
           if (updated?.id) userCache.set(updated.id, updated);
 
           const nextMembers = {};
@@ -4976,7 +5831,7 @@ function AppView() {
       store.set({ user: null, isAuthed: false, view: 'auth' });
     }}, heroIcon('arrowLeftOnRectangle', { size: 16 }));
 
-    panel.append(av, info, editBtn, logoutBtn);
+    panel.append(av, info, statusBtn, editBtn, logoutBtn);
     parent.appendChild(panel);
   }
 
@@ -5022,10 +5877,24 @@ function AppView() {
       for (const userId of participants) {
         const user = userCache.get(userId);
         const label = displayName(user || { username: `User ${userId}` });
-        const row = el('div', { class: 'voice-user' },
+        const isSpeaking = voiceState.speakingUsers.has(userId);
+        const row = el('div', {
+          class: `voice-user${isSpeaking ? ' speaking' : ''}`,
+          'data-user-id': String(userId),
+        },
           avatarEl(label, 'member-av', 30, user?.avatar),
           el('span', { class: 'voice-user-name' }, label),
         );
+        const speakingIndicator = el('span', { class: 'voice-speaking-indicator' },
+          el('span', { class: 'voice-speaking-bars' },
+            el('span'),
+            el('span'),
+            el('span'),
+          ),
+          el('span', {}, 'Speaking')
+        );
+        speakingIndicator.hidden = !isSpeaking;
+        row.appendChild(speakingIndicator);
         if (userId === myUserId) {
           row.appendChild(el('span', { class: 'voice-you' }, 'You'));
         }
@@ -5042,6 +5911,7 @@ function AppView() {
     chatMain.innerHTML = '';
 
     if (!activeChannelId) {
+      composerEl = null;
       chatMain.appendChild(el('div', { class: 'no-channel' },
         el('div', { class: 'nc-icon' }, heroIcon('chatBubble', { size: 64 })),
         el('h3', {}, 'Select a channel'),
@@ -5090,12 +5960,16 @@ function AppView() {
 
     if (isVoice) {
       msgListEl = null;
+      composerEl = null;
       chatMain.appendChild(renderVoiceView(channel));
+      refreshVoiceSpeakingUI();
       return;
     }
 
     // Message list
-    msgListEl = MessageList(activeChannelId);
+    msgListEl = MessageList(activeChannelId, {
+      onReply: (message) => composerEl?.setReplyTarget?.(message),
+    });
     chatMain.appendChild(msgListEl);
 
     // Typing bar
@@ -5103,13 +5977,19 @@ function AppView() {
     chatMain.appendChild(typingBar);
 
     // Input area
-    chatMain.appendChild(buildInput(activeChannelId));
+    composerEl = buildInput(activeChannelId);
+    chatMain.appendChild(composerEl);
   }
 
   function buildInput(channelId) {
     const area = el('div', { class: 'chat-input-area' });
+    const replyBar = el('div', { class: 'composer-reply' });
+    replyBar.hidden = true;
+    const attachmentTray = el('div', { class: 'composer-attachments' });
+    attachmentTray.hidden = true;
     const box  = el('div', { class: 'chat-input-box' });
     let pendingAttachments = [];
+    let replyTarget = null;
 
     // File upload
     const fileInput = document.createElement('input');
@@ -5131,13 +6011,29 @@ function AppView() {
       }
       fileInput.value = '';
     });
-    document.body.appendChild(fileInput);
-
     const attachBtn = el('button', { class: 'input-icon-btn', title: 'Attach file', onClick: () => fileInput.click() });
+    const gifBtn = el('button', {
+      class: 'input-pill-btn',
+      type: 'button',
+      title: 'Add a GIF',
+      onClick: () => showGifPicker({
+        onSelect: (url) => {
+          pendingAttachments.push(url);
+          updateAttachmentBadge();
+          toast('GIF added to your message', 'success');
+        },
+      }),
+    }, 'GIPHY');
 
     const textarea = document.createElement('textarea');
     textarea.className = 'chat-textarea';
-    textarea.placeholder = `Message #${store.state.channels[store.state.activeServerId]?.find(c => c.id === channelId)?.name || 'channel'}`;
+    const activeChannel = findChannelById(channelId);
+    const channelLabel = activeChannel?.type === 'dm'
+      ? (dmDisplayName(activeChannel) || 'direct-message')
+      : (activeChannel?.name || 'channel');
+    textarea.placeholder = activeChannel?.type === 'dm'
+      ? `Message ${channelLabel}`
+      : `Message #${channelLabel}`;
     textarea.rows = 1;
 
     textarea.addEventListener('input', () => {
@@ -5158,28 +6054,97 @@ function AppView() {
       updateAttachmentBadge();
     });
 
-    box.append(attachBtn, textarea, sendBtn);
-    area.append(fileInput, box);
+    box.append(attachBtn, gifBtn, textarea, sendBtn);
+    area.append(replyBar, attachmentTray, fileInput, box);
+
+    function renderReplyBar() {
+      replyBar.innerHTML = '';
+      if (!replyTarget) {
+        replyBar.hidden = true;
+        return;
+      }
+      const replyAuthor = replyTarget.author || userCache.get(replyTarget.author_id) || { username: 'Unknown', id: replyTarget.author_id };
+      replyBar.hidden = false;
+      replyBar.append(
+        el('div', { class: 'composer-reply-main' },
+          el('div', { class: 'composer-reply-label' }, `Replying to ${displayName(replyAuthor)}`),
+          el('div', { class: 'composer-reply-snippet' }, messagePreviewText(replyTarget, 84))
+        ),
+        el('button', {
+          class: 'composer-reply-close',
+          type: 'button',
+          title: 'Cancel reply',
+          onClick: () => setReplyTarget(null),
+        }, heroIcon('xMark', { size: 14 }))
+      );
+    }
+
+    function renderAttachmentTray() {
+      attachmentTray.innerHTML = '';
+      if (!pendingAttachments.length) {
+        attachmentTray.hidden = true;
+        return;
+      }
+
+      attachmentTray.hidden = false;
+      pendingAttachments.forEach((url, index) => {
+        const attachment = toAttachmentObj(url);
+        const isGif = isGifUrl(attachment?.url || url);
+        attachmentTray.appendChild(
+          el('button', {
+            class: 'composer-attachment-chip',
+            type: 'button',
+            title: 'Remove attachment',
+            onClick: () => {
+              pendingAttachments = pendingAttachments.filter((_, itemIndex) => itemIndex !== index);
+              updateAttachmentBadge();
+            },
+          },
+            el('span', { class: 'composer-attachment-kind' }, isGif ? 'GIF' : 'File'),
+            el('span', { class: 'composer-attachment-name' }, attachment?.filename || (isGif ? 'GIF' : 'Attachment')),
+            heroIcon('xMark', { size: 12 })
+          )
+        );
+      });
+    }
 
     function updateAttachmentBadge() {
       setIconCount(attachBtn, 'paperClip', pendingAttachments.length, 18);
       attachBtn.title = pendingAttachments.length
         ? `Attached files: ${pendingAttachments.length}`
         : 'Attach file';
+      gifBtn.classList.toggle('active', pendingAttachments.some((url) => isGifUrl(url)));
       sendBtn.classList.toggle('ready', textarea.value.trim().length > 0 || pendingAttachments.length > 0);
+      renderAttachmentTray();
+      renderReplyBar();
+    }
+
+    function setReplyTarget(message) {
+      replyTarget = message ? { ...message } : null;
+      if (replyTarget?.author_id && !replyTarget.author) {
+        getUserCached(replyTarget.author_id).then((user) => {
+          if (!replyTarget || Number(replyTarget.id) !== Number(message?.id)) return;
+          if (user) replyTarget.author = user;
+          renderReplyBar();
+        }).catch(() => {});
+      }
+      renderReplyBar();
+      textarea.focus();
     }
 
     async function send() {
       const content = textarea.value.trim();
       if (!content && !pendingAttachments.length) return;
+      const previousReplyTarget = replyTarget ? { ...replyTarget } : null;
+      const attached = [...pendingAttachments];
       textarea.value = '';
       textarea.style.height = 'auto';
       sendBtn.classList.remove('ready');
+      pendingAttachments = [];
+      replyTarget = null;
+      updateAttachmentBadge();
       try {
-        const attached = [...pendingAttachments];
-        const msg = await msgApi.send(channelId, content, attached);
-        pendingAttachments = [];
-        updateAttachmentBadge();
+        const msg = await msgApi.send(channelId, content, attached, previousReplyTarget?.id || null);
         // If WS isn't connected, manually add the message
         if (!store.state.wsConnected && msgListEl) {
           msgListEl.addMessage({ ...msg, author: store.state.user });
@@ -5187,10 +6152,14 @@ function AppView() {
       } catch (e) {
         toast(e?.message || 'Failed to send', 'error');
         textarea.value = content;
+        pendingAttachments = attached;
+        replyTarget = previousReplyTarget;
         updateAttachmentBadge();
       }
     }
 
+    area.setReplyTarget = setReplyTarget;
+    area.clearReplyTarget = () => setReplyTarget(null);
     updateAttachmentBadge();
     return area;
   }
@@ -5311,8 +6280,7 @@ async function bootstrap() {
   try {
     if (token.access && token.access !== 'undefined') {
       try {
-        const me = await users.me();
-        if (me?.id) userCache.set(me.id, me);
+        const me = await enrichUserPresence(await users.me());
         store.set({ user: me, isAuthed: true, view: 'app' });
         return;
       } catch {
