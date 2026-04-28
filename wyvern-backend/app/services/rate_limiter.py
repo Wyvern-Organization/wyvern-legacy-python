@@ -4,9 +4,10 @@ from app.services.redis_client import get_redis
 
 
 class RateLimiter:
-    async def check(self, key_prefix: str, actor_id: int, limit: int, window_seconds: int) -> None:
+    async def check(self, key_prefix: str, actor_id: int | str, limit: int, window_seconds: int) -> None:
         redis = get_redis()
-        key = f"rl:{key_prefix}:{actor_id}:{window_seconds}"
+        actor_key = str(actor_id).strip() or "anonymous"
+        key = f"rl:{key_prefix}:{actor_key}:{window_seconds}"
         current = await redis.incr(key)
         if current == 1:
             await redis.expire(key, window_seconds)

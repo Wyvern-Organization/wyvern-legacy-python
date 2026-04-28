@@ -1,16 +1,23 @@
 from fastapi import WebSocket, WebSocketDisconnect
 from sqlalchemy import and_, select
 
+from app.config import get_settings
 from app.database import AsyncSessionLocal
 from app.models import Channel, ChannelType, DMParticipant, ServerMember, User
 from app.models.enums import PresenceStatus
 from app.services.access import ensure_channel_access
+from app.services.live_bridge import queue_realtime_event
 from app.services.presence import presence_service
+from app.services.realtime import broadcast_presence_update
+from app.services.voice_realtime import bridge_call_signal, bridge_voice_join, bridge_voice_leave, emit_voice_participants, voice_participants_payload
 from app.utils.security import TokenError, decode_token
 from app.websocket.manager import manager
 
 
-async def _auth_websocket_user(token: str | None) -> int:
+settings = get_settings()
+
+
+async def _auth_websocket_user(token: str | None) -> str:
     if token is None:
         raise TokenError("Missing token")
 
@@ -22,10 +29,10 @@ async def _auth_websocket_user(token: str | None) -> int:
     if user_id is None:
         raise TokenError("Invalid token subject")
 
-    return int(user_id)
+    return str(user_id)
 
 
-async def _resolve_accessible_channel(db, user_id: int, channel_id: int) -> Channel | None:
+async def _resolve_accessible_channel(db, user_id: str, channel_id: str) -> Channel | None:
     result = await db.execute(select(Channel).where(Channel.id == channel_id))
     channel = result.scalar_one_or_none()
     if channel is None:
@@ -38,7 +45,7 @@ async def _resolve_accessible_channel(db, user_id: int, channel_id: int) -> Chan
     return channel
 
 
-async def _voice_recipients_for_channel(db, channel: Channel) -> set[int]:
+async def _voice_recipients_for_channel(db, channel: Channel) -> set[str]:
     if channel.type == ChannelType.dm:
         result = await db.execute(select(DMParticipant.user_id).where(DMParticipant.channel_id == channel.id))
         return set(result.scalars().all())
@@ -50,7 +57,7 @@ async def _voice_recipients_for_channel(db, channel: Channel) -> set[int]:
     return set(result.scalars().all())
 
 
-async def _emit_voice_participants(channel_id: int, participants: set[int]) -> None:
+async def _emit_voice_participants(channel_id: str, participants: set[str]) -> None:
     async with AsyncSessionLocal() as db:
         channel_result = await db.execute(select(Channel).where(Channel.id == channel_id))
         channel = channel_result.scalar_one_or_none()
@@ -67,13 +74,22 @@ async def _emit_voice_participants(channel_id: int, participants: set[int]) -> N
     )
 
 
-async def _handle_disconnect(user_id: int) -> None:
+async def _handle_disconnect(user_id: str) -> None:
     left_channel_id, remaining = await manager.disconnect(user_id)
+    await broadcast_presence_update(user_id, PresenceStatus.offline)
+    queue_realtime_event({"kind": "presence", "user_id": user_id, "status": PresenceStatus.offline.value})
     if left_channel_id is not None:
-        await _emit_voice_participants(left_channel_id, remaining)
+        await emit_voice_participants(left_channel_id)
+        bridge_voice_leave(user_id, left_channel_id)
 
 
 async def websocket_endpoint(websocket: WebSocket) -> None:
+    if settings.indexing:
+        await websocket.accept()
+        await websocket.send_json({"event": "error", "data": {"code": "INDEXING_MODE", "message": "Indexing..."}})
+        await websocket.close(code=1013)
+        return
+
     token = websocket.query_params.get("token")
 
     try:
@@ -89,6 +105,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             return
 
     await manager.connect(user_id, websocket)
+    await broadcast_presence_update(user_id, PresenceStatus.online)
+    queue_realtime_event({"kind": "presence", "user_id": user_id, "status": PresenceStatus.online.value})
 
     try:
         while True:
@@ -96,8 +114,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             action = payload.get("action")
 
             if action == "subscribe":
-                channel_ids = [int(item) for item in payload.get("channel_ids", [])]
-                allowed: list[int] = []
+                channel_ids = [str(item) for item in payload.get("channel_ids", []) if str(item)]
+                allowed: list[str] = []
 
                 async with AsyncSessionLocal() as db:
                     for channel_id in channel_ids:
@@ -111,7 +129,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     {"event": "subscribed", "data": {"channel_ids": allowed}},
                 )
             elif action == "unsubscribe":
-                channel_ids = [int(item) for item in payload.get("channel_ids", [])]
+                channel_ids = [str(item) for item in payload.get("channel_ids", []) if str(item)]
                 manager.unsubscribe(user_id, channel_ids)
                 await manager.send_personal_message(
                     user_id,
@@ -121,6 +139,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 status = payload.get("status", "online")
                 try:
                     normalized = await presence_service.set_presence(user_id, status=status)
+                    await broadcast_presence_update(user_id, normalized)
+                    queue_realtime_event({"kind": "presence", "user_id": user_id, "status": normalized.value})
                     await manager.send_personal_message(
                         user_id,
                         {"event": "presence.updated", "data": {"status": normalized.value}},
@@ -137,9 +157,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                         },
                     )
             elif action == "join_voice":
-                try:
-                    channel_id = int(payload.get("channel_id"))
-                except Exception:
+                channel_id = str(payload.get("channel_id") or "")
+                if not channel_id:
                     await manager.send_personal_message(
                         user_id,
                         {"event": "error", "data": {"message": "Invalid voice channel id"}},
@@ -156,25 +175,24 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     continue
 
                 previous_channel_id, participants, previous_remaining = manager.join_voice(user_id, channel_id)
-                await _emit_voice_participants(channel_id, participants)
+                await emit_voice_participants(channel_id)
+                await bridge_voice_join(user_id, channel_id)
                 if previous_channel_id is not None and previous_channel_id != channel_id:
-                    await _emit_voice_participants(previous_channel_id, previous_remaining)
+                    await emit_voice_participants(previous_channel_id)
+                    bridge_voice_leave(user_id, previous_channel_id)
             elif action == "leave_voice":
                 channel_raw = payload.get("channel_id")
-                channel_id: int | None = None
+                channel_id: str | None = None
                 if channel_raw is not None:
-                    try:
-                        channel_id = int(channel_raw)
-                    except Exception:
-                        channel_id = None
+                    channel_id = str(channel_raw) or None
 
                 left_channel_id, remaining = manager.leave_voice(user_id, channel_id)
                 if left_channel_id is not None:
-                    await _emit_voice_participants(left_channel_id, remaining)
+                    await emit_voice_participants(left_channel_id)
+                    bridge_voice_leave(user_id, left_channel_id)
             elif action == "voice.status":
-                try:
-                    channel_id = int(payload.get("channel_id"))
-                except Exception:
+                channel_id = str(payload.get("channel_id") or "")
+                if not channel_id:
                     await manager.send_personal_message(
                         user_id,
                         {"event": "error", "data": {"message": "Invalid voice channel id"}},
@@ -190,16 +208,16 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     )
                     continue
 
-                participants = manager.get_voice_participants(channel_id)
+                if manager.is_local_user_in_voice_channel(user_id, channel_id):
+                    await bridge_voice_join(user_id, channel_id)
                 await manager.send_personal_message(
                     user_id,
-                    {"event": "voice.participants", "data": {"channel_id": channel_id, "user_ids": sorted(participants)}},
+                    {"event": "voice.participants", "data": await voice_participants_payload(channel_id)},
                 )
             elif action == "call.signal":
-                try:
-                    channel_id = int(payload.get("channel_id"))
-                    target_user_id = int(payload.get("target_user_id"))
-                except Exception:
+                channel_id = str(payload.get("channel_id") or "")
+                target_user_id = str(payload.get("target_user_id") or "")
+                if not channel_id or not target_user_id:
                     await manager.send_personal_message(
                         user_id,
                         {"event": "error", "data": {"message": "Invalid call signal payload"}},
@@ -249,32 +267,45 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                         )
                         continue
 
-                if not manager.is_user_in_voice_channel(user_id, channel_id):
+                if not manager.is_local_user_in_voice_channel(user_id, channel_id):
                     await manager.send_personal_message(
                         user_id,
                         {"event": "error", "data": {"message": "Join voice channel before signaling"}},
                     )
                     continue
-                if not manager.is_user_in_voice_channel(target_user_id, channel_id):
+                target_is_local = manager.is_local_user_in_voice_channel(target_user_id, channel_id)
+                target_is_remote = manager.is_remote_user_in_voice_channel(target_user_id, channel_id)
+                if not target_is_local and not target_is_remote:
                     await manager.send_personal_message(
                         user_id,
                         {"event": "error", "data": {"message": "Target user is not in this voice channel"}},
                     )
                     continue
 
-                await manager.send_personal_message(
-                    target_user_id,
-                    {
-                        "event": "call.signal",
-                        "data": {
-                            "channel_id": channel_id,
-                            "from_user_id": user_id,
-                            "signal_type": signal_type,
-                            "payload": payload.get("payload"),
+                if target_is_local:
+                    await manager.send_personal_message(
+                        target_user_id,
+                        {
+                            "event": "call.signal",
+                            "data": {
+                                "channel_id": channel_id,
+                                "from_user_id": user_id,
+                                "signal_type": signal_type,
+                                "payload": payload.get("payload"),
+                            },
                         },
-                    },
-                )
+                    )
+                else:
+                    bridge_call_signal(
+                        channel_id=channel_id,
+                        from_user_id=user_id,
+                        target_user_id=target_user_id,
+                        signal_type=signal_type,
+                        payload=payload.get("payload"),
+                    )
             elif action == "ping":
+                current_presence = await presence_service.get_presence(user_id)
+                queue_realtime_event({"kind": "presence", "user_id": user_id, "status": current_presence.value})
                 await manager.send_personal_message(user_id, {"event": "pong"})
             else:
                 await manager.send_personal_message(

@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models import Channel, ChannelType, DMParticipant, User
+from app.models import Channel, ChannelType, DMHiddenState, DMParticipant, User
 from app.schemas.dm import DMChannelOut, DMCreateRequest, DMParticipantOut
-from app.services.pubsub import publish_channel_event
-from app.services.sync_bridge import enqueue_delete_event, enqueue_upsert_event
+from app.services.pubsub import publish_channel_event, publish_user_event
+from app.services.sync_bridge import enqueue_upsert_event
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
 
@@ -71,6 +71,12 @@ async def create_dm_channel(
     )
     channel = existing.scalars().first()
     if channel is not None:
+        await db.execute(
+            delete(DMHiddenState).where(
+                and_(DMHiddenState.channel_id == channel.id, DMHiddenState.user_id == current_user.id)
+            )
+        )
+        await db.commit()
         serialized = await _serialize_dm_channel(db, channel)
         return success_response(serialized.model_dump())
 
@@ -119,7 +125,17 @@ async def list_dm_channels(db: AsyncSession = Depends(get_db), current_user: Use
     result = await db.execute(
         select(Channel)
         .join(DMParticipant, DMParticipant.channel_id == Channel.id)
-        .where(and_(Channel.type == ChannelType.dm, DMParticipant.user_id == current_user.id))
+        .outerjoin(
+            DMHiddenState,
+            and_(DMHiddenState.channel_id == Channel.id, DMHiddenState.user_id == current_user.id),
+        )
+        .where(
+            and_(
+                Channel.type == ChannelType.dm,
+                DMParticipant.user_id == current_user.id,
+                DMHiddenState.user_id.is_(None),
+            )
+        )
         .order_by(Channel.created_at.desc())
     )
     channels = result.scalars().all()
@@ -129,7 +145,7 @@ async def list_dm_channels(db: AsyncSession = Depends(get_db), current_user: Use
 
 @router.get("/{channel_id}")
 async def get_dm_channel(
-    channel_id: int,
+    channel_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
@@ -145,6 +161,14 @@ async def get_dm_channel(
     )
     if participant.scalar_one_or_none() is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No DM access")
+
+    hidden_state = await db.execute(
+        select(DMHiddenState).where(
+            and_(DMHiddenState.channel_id == channel_id, DMHiddenState.user_id == current_user.id)
+        )
+    )
+    if hidden_state.scalar_one_or_none() is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DM channel not found")
 
     serialized = await _serialize_dm_channel(db, channel)
     return success_response(serialized.model_dump())
@@ -152,7 +176,7 @@ async def get_dm_channel(
 
 @router.delete("/{channel_id}")
 async def close_dm_channel(
-    channel_id: int,
+    channel_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
@@ -169,26 +193,21 @@ async def close_dm_channel(
     if participant.scalar_one_or_none() is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No DM access")
 
-    participant_ids_result = await db.execute(select(DMParticipant.user_id).where(DMParticipant.channel_id == channel_id))
-    participant_ids = set(participant_ids_result.scalars().all())
-    participant_rows = (
-        await db.execute(select(DMParticipant).where(DMParticipant.channel_id == channel_id))
-    ).scalars().all()
-
-    for participant in participant_rows:
-        await enqueue_delete_event(db, "dm_participant", participant, base_sync_version=participant.sync_version)
-    await enqueue_delete_event(db, "channel", channel, base_sync_version=channel.sync_version)
-    await db.delete(channel)
+    hidden_state = await db.execute(
+        select(DMHiddenState).where(
+            and_(DMHiddenState.channel_id == channel_id, DMHiddenState.user_id == current_user.id)
+        )
+    )
+    if hidden_state.scalar_one_or_none() is None:
+        db.add(DMHiddenState(channel_id=channel_id, user_id=current_user.id))
     await db.commit()
 
-    if participant_ids:
-        await publish_channel_event(
-            channel_id,
-            payload={
-                "event": "dm.deleted",
-                "channel_id": channel_id,
-                "data": {"id": channel_id},
-            },
-            extra_user_ids=participant_ids,
-        )
+    await publish_user_event(
+        {current_user.id},
+        payload={
+            "event": "dm.deleted",
+            "channel_id": channel_id,
+            "data": {"id": channel_id},
+        },
+    )
     return success_response({"deleted": True})

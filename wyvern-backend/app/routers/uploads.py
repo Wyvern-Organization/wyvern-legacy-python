@@ -37,10 +37,12 @@ async def upload_file(
     )
 
     size = await _get_upload_size(file)
-    if not current_user.is_paid and size > settings.free_upload_limit_bytes:
+    size_limit = settings.paid_upload_limit_bytes if current_user.is_paid else settings.free_upload_limit_bytes
+    if size > size_limit:
+        tier_label = "Paid" if current_user.is_paid else "Free-tier"
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Free-tier uploads are limited to {settings.free_upload_limit_bytes} bytes",
+            detail=f"{tier_label} uploads are limited to {size_limit} bytes",
         )
 
     url = await upload_file_to_storage(file, current_user.id)

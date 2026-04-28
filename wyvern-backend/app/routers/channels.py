@@ -5,6 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models import Channel, ChannelType, MemberRole, ServerMember, User
 from app.schemas.channel import ChannelCreate, ChannelOut, ChannelUpdate
+from app.services.community import record_server_activity
+from app.services.realtime import broadcast_channel_event
 from app.services.sync_bridge import bump_sync_version, enqueue_delete_event, enqueue_upsert_event
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
@@ -17,7 +19,7 @@ def _can_manage_channels(role: MemberRole) -> bool:
     return role in {MemberRole.owner, MemberRole.admin, MemberRole.moderator}
 
 
-async def _require_server_membership(db: AsyncSession, server_id: int, user_id: int) -> ServerMember:
+async def _require_server_membership(db: AsyncSession, server_id: str, user_id: str) -> ServerMember:
     result = await db.execute(
         select(ServerMember).where(and_(ServerMember.server_id == server_id, ServerMember.user_id == user_id))
     )
@@ -29,7 +31,7 @@ async def _require_server_membership(db: AsyncSession, server_id: int, user_id: 
 
 @router.post("/server/{server_id}")
 async def create_channel(
-    server_id: int,
+    server_id: str,
     payload: ChannelCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -52,15 +54,25 @@ async def create_channel(
     db.add(channel)
     await db.flush()
     await enqueue_upsert_event(db, "channel", channel, base_sync_version=0)
+    await record_server_activity(
+        db,
+        server_id=server_id,
+        actor_user_id=current_user.id,
+        action="channel.created",
+        target_type="channel",
+        target_id=str(channel.id),
+        metadata={"name": channel.name, "type": channel.type.value if hasattr(channel.type, "value") else str(channel.type)},
+    )
     await db.commit()
     await db.refresh(channel)
+    await broadcast_channel_event(db, "created", channel)
 
     return success_response(ChannelOut.model_validate(channel).model_dump())
 
 
 @router.get("/server/{server_id}")
 async def list_server_channels(
-    server_id: int,
+    server_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
@@ -78,7 +90,7 @@ async def list_server_channels(
 
 @router.get("/{channel_id}")
 async def get_channel(
-    channel_id: int,
+    channel_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
@@ -97,7 +109,7 @@ async def get_channel(
 
 @router.patch("/{channel_id}")
 async def update_channel(
-    channel_id: int,
+    channel_id: str,
     payload: ChannelUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -122,15 +134,25 @@ async def update_channel(
         channel.category = payload.category
     base_sync_version = bump_sync_version(channel)
     await enqueue_upsert_event(db, "channel", channel, base_sync_version=base_sync_version)
+    await record_server_activity(
+        db,
+        server_id=channel.server_id,
+        actor_user_id=current_user.id,
+        action="channel.updated",
+        target_type="channel",
+        target_id=str(channel.id),
+        metadata={"name": channel.name, "position": channel.position, "category": channel.category},
+    )
 
     await db.commit()
     await db.refresh(channel)
+    await broadcast_channel_event(db, "updated", channel)
     return success_response(ChannelOut.model_validate(channel).model_dump())
 
 
 @router.delete("/{channel_id}")
 async def delete_channel(
-    channel_id: int,
+    channel_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
@@ -146,7 +168,19 @@ async def delete_channel(
     if not _can_manage_channels(membership.role):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
 
+    recipient_ids_result = await db.execute(select(ServerMember.user_id).where(ServerMember.server_id == channel.server_id))
+    recipient_ids = {str(user_id) for user_id in recipient_ids_result.scalars().all()}
     await enqueue_delete_event(db, "channel", channel, base_sync_version=channel.sync_version)
+    await record_server_activity(
+        db,
+        server_id=channel.server_id,
+        actor_user_id=current_user.id,
+        action="channel.deleted",
+        target_type="channel",
+        target_id=str(channel.id),
+        metadata={"name": channel.name},
+    )
     await db.delete(channel)
     await db.commit()
+    await broadcast_channel_event(db, "deleted", channel, recipients=recipient_ids)
     return success_response({"deleted": True})

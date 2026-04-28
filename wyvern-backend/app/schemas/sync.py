@@ -10,6 +10,7 @@ class ReplicationEventIn(BaseModel):
     entity_sync_id: str = Field(min_length=1, max_length=36)
     base_sync_version: int | None = None
     payload: dict | None = None
+    snapshot: bool = False
 
 
 class ReplicationBatchIn(BaseModel):

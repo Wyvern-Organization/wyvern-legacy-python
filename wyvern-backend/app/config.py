@@ -1,7 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
+import secrets
 
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,6 +15,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@postgres:5432/wyvern"
     redis_url: str = "redis://redis:6379/0"
     sync_peer_api_url: str | None = None
+    node_id: str = Field(default="aspc", validation_alias=AliasChoices("WYVERN_NODE_ID", "NODE_ID"))
+    indexing: bool = Field(default=False, validation_alias=AliasChoices("WYVERN_INDEXING", "INDEXING"))
     node_role: str = "main"
     sync_shared_secret: str | None = None
     sync_enabled: bool = False
@@ -22,24 +25,32 @@ class Settings(BaseSettings):
     sync_bridge_batch_size: int = 100
     sync_bridge_poll_interval_seconds: float = 2.0
     sync_bridge_request_timeout_seconds: float = 10.0
+    sync_bridge_resync_interval_seconds: float = 300.0
 
-    jwt_secret_key: str = "change-me"
+    jwt_secret_key: str = Field(default_factory=lambda: secrets.token_urlsafe(48))
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
 
-    cors_origins: str = "*"
+    cors_origins: str = "http://localhost:8009,http://127.0.0.1:8009,http://localhost:3000,http://127.0.0.1:3000"
     mirror_target_url: str | None = None
 
     local_media_dir: str = "media"
     media_url_prefix: str = "/media"
 
-    free_upload_limit_bytes: int = 1_073_741_824
+    giphy_api_key: str | None = None
+    giphy_rating: str = "g"
+    giphy_limit: int = 24
+
+    free_upload_limit_bytes: int = 25 * 1024 * 1024
+    paid_upload_limit_bytes: int = 100 * 1024 * 1024
 
     rate_limit_message_count: int = 5
     rate_limit_message_window_seconds: int = 1
     rate_limit_upload_count: int = 10
     rate_limit_upload_window_seconds: int = 60
+    rate_limit_auth_count: int = 10
+    rate_limit_auth_window_seconds: int = 60
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -56,7 +67,7 @@ class Settings(BaseSettings):
 
     def get_cors_origins(self) -> list[str]:
         if not self.cors_origins:
-            return ["*"]
+            return []
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
 
     @field_validator("media_url_prefix", mode="before")
@@ -90,13 +101,42 @@ class Settings(BaseSettings):
             return None
         return normalized.rstrip("/")
 
+    @field_validator("giphy_api_key", mode="before")
+    @classmethod
+    def normalize_giphy_api_key(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = str(value).strip()
+        return normalized or None
+
+    @field_validator("giphy_rating", mode="before")
+    @classmethod
+    def normalize_giphy_rating(cls, value: str) -> str:
+        normalized = (value or "g").strip().lower()
+        return normalized if normalized in {"g", "pg", "pg-13", "r"} else "g"
+
+    @field_validator("giphy_limit", mode="before")
+    @classmethod
+    def normalize_giphy_limit(cls, value: int | str) -> int:
+        try:
+            normalized = int(value)
+        except Exception:
+            normalized = 24
+        return max(1, min(50, normalized))
+
     @field_validator("node_role", mode="before")
     @classmethod
     def normalize_node_role(cls, value: str) -> str:
         normalized = (value or "main").strip().lower()
         return normalized if normalized in {"main", "edge"} else "main"
 
-    @field_validator("sync_enabled", "edge_mode_enabled", mode="before")
+    @field_validator("node_id", mode="before")
+    @classmethod
+    def normalize_node_id(cls, value: str) -> str:
+        normalized = (value or "aspc").strip().lower()
+        return normalized if normalized in {"aspc", "nubu"} else "aspc"
+
+    @field_validator("sync_enabled", "edge_mode_enabled", "indexing", mode="before")
     @classmethod
     def parse_bool_flag(cls, value: bool | str) -> bool:
         if isinstance(value, str):

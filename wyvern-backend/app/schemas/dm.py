@@ -6,11 +6,11 @@ from app.models.enums import ChannelType
 
 
 class DMCreateRequest(BaseModel):
-    recipient_id: int
+    recipient_id: str
 
 
 class DMParticipantOut(BaseModel):
-    id: int
+    id: str
     username: str
     discriminator: str
     display_name: str | None
@@ -18,12 +18,12 @@ class DMParticipantOut(BaseModel):
 
 
 class DMChannelOut(BaseModel):
-    id: int
-    server_id: int | None
+    id: str
+    server_id: str | None
     name: str
     type: ChannelType
     position: int
     category: str | None
-    created_by: int
+    created_by: str
     created_at: datetime
     participants: list[DMParticipantOut]

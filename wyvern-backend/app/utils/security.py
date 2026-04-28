@@ -24,7 +24,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int | str) -> str:
     now = datetime.now(tz=UTC)
     payload = {
         "sub": str(user_id),
@@ -35,7 +35,7 @@ def create_access_token(user_id: int) -> str:
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
-def create_refresh_token(user_id: int) -> tuple[str, str, datetime]:
+def create_refresh_token(user_id: int | str) -> tuple[str, str, datetime]:
     now = datetime.now(tz=UTC)
     expires_at = now + timedelta(days=settings.refresh_token_expire_days)
     payload = {

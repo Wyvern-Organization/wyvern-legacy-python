@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column
 
 from app.database import Base
+from app.services.ids import ID_COLUMN_LENGTH, generate_entity_id
 
 
 def generate_sync_id() -> str:
@@ -25,7 +26,8 @@ class SyncMixin:
 class ReplicationOutbox(Base):
     __tablename__ = "replication_outbox"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    id: Mapped[str] = mapped_column(String(ID_COLUMN_LENGTH), primary_key=True, index=True, default=lambda: generate_entity_id("replication_outbox"))
+    legacy_id: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True, index=True)
     event_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True, index=True)
     schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     source_node: Mapped[str] = mapped_column(String(16), nullable=False, index=True)

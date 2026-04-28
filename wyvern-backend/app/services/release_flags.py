@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,18 @@ DEFAULT_RELEASE_FLAGS: list[dict[str, Any]] = [
     {
         "key": "edge_release_banner",
         "description": "Show the Edge release banner inside the Edge app shell. This flag is locked to the Edge channel.",
+        "stable_enabled": False,
+        "edge_enabled": True,
+    },
+    {
+        "key": "community_tools",
+        "description": "Enable search, pins, bookmarks, webhooks, and collaborative workspaces.",
+        "stable_enabled": False,
+        "edge_enabled": True,
+    },
+    {
+        "key": "shell_refresh",
+        "description": "Use the refreshed ChatGPT-style shell with labeled navigation rows.",
         "stable_enabled": False,
         "edge_enabled": True,
     },
@@ -97,9 +110,28 @@ async def build_bridge_health(db: AsyncSession) -> BridgeHealthOut:
 async def load_release_flags(db: AsyncSession) -> list[ReleaseFlag]:
     result = await db.execute(select(ReleaseFlag).order_by(ReleaseFlag.key.asc()))
     flags = result.scalars().all()
-    if flags:
+    existing_keys = {flag.key for flag in flags}
+    missing_defaults = [item for item in DEFAULT_RELEASE_FLAGS if item["key"] not in existing_keys]
+    if not missing_defaults:
         return flags
-    return []
+
+    now = datetime.now(tz=UTC)
+    for item in missing_defaults:
+        db.add(
+            ReleaseFlag(
+                sync_id=str(uuid4()),
+                key=item["key"],
+                description=item["description"],
+                stable_enabled=bool(item.get("stable_enabled", False)),
+                edge_enabled=bool(item.get("edge_enabled", True)),
+                updated_at=now,
+                last_promoted_at=None,
+            )
+        )
+    await db.commit()
+
+    result = await db.execute(select(ReleaseFlag).order_by(ReleaseFlag.key.asc()))
+    return result.scalars().all()
 
 
 async def build_release_status(db: AsyncSession, release_channel: str) -> ReleaseStatusOut:
@@ -139,7 +171,7 @@ async def build_release_audit(db: AsyncSession, limit: int = 50) -> list[Release
     return audits
 
 
-async def promote_release_flags(db: AsyncSession, promoted_by_user_id: int) -> ReleasePromotionOut:
+async def promote_release_flags(db: AsyncSession, promoted_by_user_id: str) -> ReleasePromotionOut:
     flags = await load_release_flags(db)
     now = datetime.now(tz=UTC)
     promoted_keys: list[str] = []

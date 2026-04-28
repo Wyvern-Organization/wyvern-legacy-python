@@ -21,11 +21,11 @@ class ChannelUpdate(BaseModel):
 class ChannelOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    server_id: int | None
+    id: str
+    server_id: str | None
     name: str
     type: ChannelType
     position: int
     category: str | None
-    created_by: int
+    created_by: str
     created_at: datetime

@@ -1,12 +1,13 @@
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import and_, func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.database import get_db
-from app.models import MemberRole, Server, ServerInvite, ServerMember, User
+from app.models import MemberRole, Server, ServerActivityLog, ServerInvite, ServerMember, User
+from app.schemas.community import CommunityActivityOut
 from app.schemas.server import (
     ServerCreate,
     ServerDirectoryOut,
@@ -17,6 +18,8 @@ from app.schemas.server import (
     ServerOut,
     ServerUpdate,
 )
+from app.services.community import record_server_activity
+from app.services.realtime import broadcast_server_event, broadcast_server_member_event
 from app.services.sync_bridge import bump_sync_version, enqueue_delete_event, enqueue_upsert_event
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
@@ -25,7 +28,7 @@ from app.utils.responses import success_response
 router = APIRouter(prefix="/servers", tags=["servers"])
 
 
-async def _get_membership(db: AsyncSession, server_id: int, user_id: int) -> ServerMember | None:
+async def _get_membership(db: AsyncSession, server_id: str, user_id: str) -> ServerMember | None:
     result = await db.execute(
         select(ServerMember).where(and_(ServerMember.server_id == server_id, ServerMember.user_id == user_id))
     )
@@ -82,8 +85,19 @@ async def create_server(
     ).scalar_one()
     await enqueue_upsert_event(db, "server", server, base_sync_version=0)
     await enqueue_upsert_event(db, "server_member", owner_member, base_sync_version=0)
+    await record_server_activity(
+        db,
+        server_id=server.id,
+        actor_user_id=current_user.id,
+        action="server.created",
+        target_type="server",
+        target_id=str(server.id),
+        metadata={"name": server.name},
+    )
     await db.commit()
     await db.refresh(server)
+    await broadcast_server_event(db, "created", server)
+    await broadcast_server_member_event(db, "created", owner_member, user=current_user, server=server)
 
     return success_response(ServerOut.model_validate(server).model_dump())
 
@@ -142,7 +156,7 @@ async def list_server_directory(
 
 
 @router.get("/{server_id}")
-async def get_server(server_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
+async def get_server(server_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
     result = await db.execute(select(Server).where(Server.id == server_id))
     server = result.scalar_one_or_none()
     if server is None:
@@ -157,7 +171,7 @@ async def get_server(server_id: int, db: AsyncSession = Depends(get_db), current
 
 @router.patch("/{server_id}")
 async def update_server(
-    server_id: int,
+    server_id: str,
     payload: ServerUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -183,15 +197,25 @@ async def update_server(
         server.directory_opt_in = payload.directory_opt_in
     base_sync_version = bump_sync_version(server)
     await enqueue_upsert_event(db, "server", server, base_sync_version=base_sync_version)
+    await record_server_activity(
+        db,
+        server_id=server.id,
+        actor_user_id=current_user.id,
+        action="server.updated",
+        target_type="server",
+        target_id=str(server.id),
+        metadata={"directory_opt_in": server.directory_opt_in, "name": server.name},
+    )
 
     await db.commit()
     await db.refresh(server)
+    await broadcast_server_event(db, "updated", server)
     return success_response(ServerOut.model_validate(server).model_dump())
 
 
 @router.delete("/{server_id}")
 async def delete_server(
-    server_id: int,
+    server_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
@@ -203,15 +227,27 @@ async def delete_server(
     if server.owner_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only owner can delete server")
 
+    recipient_ids_result = await db.execute(select(ServerMember.user_id).where(ServerMember.server_id == server_id))
+    recipient_ids = {str(user_id) for user_id in recipient_ids_result.scalars().all()}
     await enqueue_delete_event(db, "server", server, base_sync_version=server.sync_version)
+    await record_server_activity(
+        db,
+        server_id=server.id,
+        actor_user_id=current_user.id,
+        action="server.deleted",
+        target_type="server",
+        target_id=str(server.id),
+        metadata={"name": server.name},
+    )
     await db.delete(server)
     await db.commit()
+    await broadcast_server_event(db, "deleted", server, recipients=recipient_ids, extra_user_ids={current_user.id})
     return success_response({"deleted": True})
 
 
 @router.post("/{server_id}/join")
 async def join_server(
-    server_id: int,
+    server_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
@@ -228,15 +264,25 @@ async def join_server(
     db.add(new_member)
     await db.flush()
     await enqueue_upsert_event(db, "server_member", new_member, base_sync_version=0)
+    await record_server_activity(
+        db,
+        server_id=server_id,
+        actor_user_id=current_user.id,
+        action="server.member.joined",
+        target_type="member",
+        target_id=str(current_user.id),
+        metadata={"role": new_member.role.value if hasattr(new_member.role, "value") else str(new_member.role)},
+    )
     await db.commit()
     await db.refresh(new_member)
+    await broadcast_server_member_event(db, "created", new_member, user=current_user, server=server)
 
     return success_response(ServerMemberOut.model_validate(new_member).model_dump())
 
 
 @router.post("/{server_id}/invites")
 async def create_server_invite(
-    server_id: int,
+    server_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
@@ -254,6 +300,15 @@ async def create_server_invite(
     db.add(invite)
     await db.flush()
     await enqueue_upsert_event(db, "server_invite", invite, base_sync_version=0)
+    await record_server_activity(
+        db,
+        server_id=server_id,
+        actor_user_id=current_user.id,
+        action="server.invite.created",
+        target_type="invite",
+        target_id=invite.code,
+        metadata={"invite_path": _invite_path(invite.code)},
+    )
     await db.commit()
     await db.refresh(invite)
 
@@ -313,8 +368,18 @@ async def join_server_by_invite(
         db.add(membership)
         await db.flush()
         await enqueue_upsert_event(db, "server_member", membership, base_sync_version=0)
+        await record_server_activity(
+            db,
+            server_id=server.id,
+            actor_user_id=current_user.id,
+            action="server.member.joined",
+            target_type="member",
+            target_id=str(current_user.id),
+            metadata={"via": "invite", "invite_code": invite.code},
+        )
         await db.commit()
         await db.refresh(membership)
+        await broadcast_server_member_event(db, "created", membership, user=current_user, server=server)
     payload = ServerJoinByInviteOut(
         server=ServerOut.model_validate(server),
         membership=ServerMemberOut.model_validate(membership),
@@ -324,7 +389,7 @@ async def join_server_by_invite(
 
 @router.post("/{server_id}/leave")
 async def leave_server(
-    server_id: int,
+    server_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
@@ -335,15 +400,30 @@ async def leave_server(
     if membership.role == MemberRole.owner:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Owner cannot leave server")
 
+    recipient_ids_result = await db.execute(select(ServerMember.user_id).where(ServerMember.server_id == server_id))
+    recipient_ids = {str(user_id) for user_id in recipient_ids_result.scalars().all()}
     await enqueue_delete_event(db, "server_member", membership, base_sync_version=membership.sync_version)
+    await record_server_activity(
+        db,
+        server_id=server_id,
+        actor_user_id=current_user.id,
+        action="server.member.left",
+        target_type="member",
+        target_id=str(current_user.id),
+        metadata={"role": membership.role.value if hasattr(membership.role, "value") else str(membership.role)},
+    )
     await db.delete(membership)
     await db.commit()
+    result = await db.execute(select(Server).where(Server.id == server_id))
+    server = result.scalar_one_or_none()
+    if server is not None:
+        await broadcast_server_member_event(db, "deleted", membership, user=current_user, server=server, recipients=recipient_ids, extra_user_ids={current_user.id})
     return success_response({"left": True})
 
 
 @router.get("/{server_id}/members")
 async def list_members(
-    server_id: int,
+    server_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
@@ -360,8 +440,8 @@ async def list_members(
 
 @router.patch("/{server_id}/members/{member_user_id}")
 async def update_member_role(
-    server_id: int,
-    member_user_id: int,
+    server_id: str,
+    member_user_id: str,
     role: MemberRole,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -380,6 +460,38 @@ async def update_member_role(
     target_membership.role = role
     base_sync_version = bump_sync_version(target_membership)
     await enqueue_upsert_event(db, "server_member", target_membership, base_sync_version=base_sync_version)
+    await record_server_activity(
+        db,
+        server_id=server_id,
+        actor_user_id=current_user.id,
+        action="server.member.role_updated",
+        target_type="member",
+        target_id=str(member_user_id),
+        metadata={"role": role.value if hasattr(role, "value") else str(role)},
+    )
     await db.commit()
     await db.refresh(target_membership)
+    target_user = await db.get(User, member_user_id)
+    await broadcast_server_member_event(db, "updated", target_membership, user=target_user, server=await db.get(Server, server_id))
     return success_response(ServerMemberOut.model_validate(target_membership).model_dump())
+
+
+@router.get("/{server_id}/activity")
+async def server_activity(
+    server_id: str,
+    limit: int = Query(default=50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    membership = await _get_membership(db, server_id, current_user.id)
+    if membership is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a member")
+
+    result = await db.execute(
+        select(ServerActivityLog)
+        .where(ServerActivityLog.server_id == server_id)
+        .order_by(desc(ServerActivityLog.created_at), desc(ServerActivityLog.id))
+        .limit(limit)
+    )
+    items = [CommunityActivityOut.model_validate(item).model_dump(mode="json") for item in result.scalars().all()]
+    return success_response({"items": items})

@@ -93,6 +93,9 @@ Copy `.env.example` to `.env` and set values.
 - `MIRROR_TARGET_URL` optional upstream base URL used by `/mirror/...` proxy (example: `https://your-tunnel.trycloudflare.com`)
 - `LOCAL_MEDIA_DIR` local directory used to persist uploads (default: `media`)
 - `MEDIA_URL_PREFIX` URL path used to serve media files (default: `/media`)
+- `GIPHY_API_KEY` public GIPHY API key used by the GIF picker
+- `GIPHY_RATING` GIPHY content rating used for GIF search (default: `g`)
+- `GIPHY_LIMIT` maximum GIF results to fetch in the picker (default: `24`)
 - `FREE_UPLOAD_LIMIT_BYTES` default: `1073741824` (1 GiB)
 - `RATE_LIMIT_MESSAGE_COUNT` default: `5`
 - `RATE_LIMIT_MESSAGE_WINDOW_SECONDS` default: `1`
@@ -122,6 +125,8 @@ Copy `.env.example` to `.env` and set values.
 4. `docker compose up --build`
 
 The app runs on `http://localhost:8000`.
+
+On ASPC, the one-command launcher lives at `../scripts/start-aspc.ps1` and starts the Docker stack on port `8009`.
 
 ## Local Run (without Docker)
 

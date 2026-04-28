@@ -1,6 +1,7 @@
 import asyncio
 import json
 
+from app.services.live_bridge import queue_realtime_event
 from app.services.redis_client import get_redis
 from app.websocket.manager import manager
 
@@ -9,7 +10,13 @@ PUBSUB_CHANNEL = "wyvern:channel-events"
 _listener_task: asyncio.Task | None = None
 
 
-async def publish_channel_event(channel_id: int, payload: dict, extra_user_ids: set[int] | None = None) -> None:
+async def publish_channel_event(
+    channel_id: str,
+    payload: dict,
+    extra_user_ids: set[str] | None = None,
+    *,
+    bridge: bool = True,
+) -> None:
     redis = get_redis()
     message = {
         "channel_id": channel_id,
@@ -17,6 +24,24 @@ async def publish_channel_event(channel_id: int, payload: dict, extra_user_ids: 
         "extra_user_ids": sorted(extra_user_ids or set()),
     }
     await redis.publish(PUBSUB_CHANNEL, json.dumps(message))
+    if bridge:
+        queue_realtime_event({"kind": "channel", **message})
+
+
+async def publish_user_event(user_ids: set[str], payload: dict, *, bridge: bool = True) -> None:
+    if not user_ids:
+        return
+
+    redis = get_redis()
+    message = {
+        "channel_id": None,
+        "payload": payload,
+        "extra_user_ids": [],
+        "user_ids": sorted(user_ids),
+    }
+    await redis.publish(PUBSUB_CHANNEL, json.dumps(message))
+    if bridge:
+        queue_realtime_event({"kind": "users", **message})
 
 
 async def _pubsub_listener() -> None:
@@ -30,13 +55,16 @@ async def _pubsub_listener() -> None:
             if message and message.get("type") == "message":
                 try:
                     payload = json.loads(message.get("data", "{}"))
-                    channel_id = int(payload.get("channel_id"))
+                    channel_id = str(payload.get("channel_id") or "")
                     event_payload = payload.get("payload")
-                    extra_user_ids = {int(item) for item in payload.get("extra_user_ids", [])}
+                    extra_user_ids = {str(item) for item in payload.get("extra_user_ids", []) if str(item)}
+                    user_ids = {str(item) for item in payload.get("user_ids", []) if str(item)}
                 except Exception:
                     continue
 
-                if channel_id > 0 and isinstance(event_payload, dict):
+                if user_ids and isinstance(event_payload, dict):
+                    await manager.broadcast_to_users(user_ids, event_payload)
+                elif channel_id and isinstance(event_payload, dict):
                     await manager.broadcast_to_channel(channel_id, event_payload, extra_user_ids=extra_user_ids)
 
             await asyncio.sleep(0.05)

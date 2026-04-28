@@ -36,7 +36,7 @@ class TokenPair(BaseModel):
 class AuthUser(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: str
     username: str
     discriminator: str
     display_name: str | None

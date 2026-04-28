@@ -9,7 +9,7 @@ class ReleaseFlagOut(BaseModel):
     stable_enabled: bool
     edge_enabled: bool
     channel_locked: bool = False
-    updated_by_user_id: int | None = None
+    updated_by_user_id: str | None = None
     updated_at: datetime
     last_promoted_at: datetime | None = None
 
@@ -38,8 +38,8 @@ class ReleaseStatusOut(BaseModel):
 
 
 class ReleaseAuditOut(BaseModel):
-    id: int
-    promoted_by_user_id: int | None = None
+    id: str
+    promoted_by_user_id: str | None = None
     promoted_by_label: str | None = None
     promoted_at: datetime
     promoted_flag_keys: list[str] = Field(default_factory=list)

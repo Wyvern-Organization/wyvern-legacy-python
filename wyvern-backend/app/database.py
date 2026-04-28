@@ -18,7 +18,14 @@ class Base(DeclarativeBase):
 
 
 settings = get_settings()
-engine = create_async_engine(settings.database_url, echo=settings.debug, future=True)
+# Keep idle pooled connections from failing after long quiet periods.
+engine = create_async_engine(
+    settings.database_url,
+    echo=settings.debug,
+    future=True,
+    pool_pre_ping=True,
+    pool_recycle=1800,
+)
 AsyncSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
 

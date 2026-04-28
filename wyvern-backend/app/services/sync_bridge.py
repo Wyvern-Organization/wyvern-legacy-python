@@ -6,11 +6,11 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urljoin
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 import httpx
 from jose import JWTError, jwt
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -18,6 +18,7 @@ from app.config import get_settings
 from app.database import AsyncSessionLocal
 from app.models import (
     Channel,
+    DMHiddenState,
     DMParticipant,
     Message,
     Reaction,
@@ -31,8 +32,17 @@ from app.models import (
 )
 from app.models.enums import ChannelType, MemberRole
 from app.schemas.message import MessageOut, MessageReactionOut, MessageReplyPreviewOut
+from app.schemas.user import UserPublicOut
+from app.services.realtime import (
+    broadcast_channel_event,
+    broadcast_public_user_update,
+    broadcast_server_event,
+    broadcast_server_member_event,
+    broadcast_user_event,
+)
 from app.services.pubsub import publish_channel_event
 from app.services.redis_client import get_redis
+from app.utils.security import hash_password
 
 
 logger = logging.getLogger(__name__)
@@ -44,6 +54,7 @@ EDGE_HANDOFF_TYPE = "edge-handoff"
 EDGE_HANDOFF_CONSUMED_PREFIX = "wyvern:edge-handoff:used:"
 SYNC_BATCH_PATH = "/internal/sync/batch"
 SYNC_BOOTSTRAP_PATH = "/internal/sync/bootstrap"
+BOOTSTRAP_EVENT_NAMESPACE = uuid5(NAMESPACE_URL, "wyvern-sync-bootstrap-v1")
 ENTITY_TYPES = {
     "user",
     "server",
@@ -57,6 +68,10 @@ ENTITY_TYPES = {
 }
 
 EDGE_PROMOTABLE_ENTITY_TYPES = {
+    "user",
+    "server",
+    "server_member",
+    "server_invite",
     "channel",
     "dm_participant",
     "message",
@@ -64,6 +79,8 @@ EDGE_PROMOTABLE_ENTITY_TYPES = {
 }
 
 _sync_worker_task: asyncio.Task | None = None
+_last_main_resync_attempt_at: datetime | None = None
+_last_main_resync_succeeded = False
 
 
 def bridge_is_configured() -> bool:
@@ -82,6 +99,10 @@ def _json_default(value: Any) -> Any:
 
 def _json_bytes(payload: dict[str, Any]) -> bytes:
     return json.dumps(payload, default=_json_default, separators=(",", ":"), sort_keys=True).encode("utf-8")
+
+
+def _json_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    return json.loads(json.dumps(payload, default=_json_default))
 
 
 def _signature(secret: str, timestamp: str, body: bytes) -> str:
@@ -140,6 +161,10 @@ def _result(status_value: str, event: dict[str, Any], error: str | None = None) 
     }
 
 
+def _bootstrap_event_id(source_node: str, entity_type: str, sync_id: str, sync_version: int) -> str:
+    return str(uuid5(BOOTSTRAP_EVENT_NAMESPACE, f"{source_node}:{entity_type}:{sync_id}:{sync_version}"))
+
+
 def _should_check_conflict(source_node: str) -> bool:
     return settings.node_role == "main" and source_node == "edge"
 
@@ -172,32 +197,42 @@ def _channel_type_value(channel: Channel | None) -> str:
 
 
 def _edge_write_allowed(entity_type: str, action: str, payload: dict[str, Any], entity: Any | None = None) -> tuple[bool, str]:
-    if entity_type not in {"channel", "dm_participant", "message", "reaction"}:
+    if entity_type not in EDGE_PROMOTABLE_ENTITY_TYPES:
         return False, f"Edge writes for {entity_type} are not promoted before stable approval"
-    if entity_type in {"message", "reaction", "dm_participant"}:
-        return True, ""
-
-    channel_type = str(payload.get("type") or "").strip().lower()
-    if not channel_type and entity is not None:
-        channel_type = _channel_type_value(entity).lower()
-    if channel_type != ChannelType.dm.value:
-        return False, "Edge can only promote DM channel changes before stable approval"
-    if str(payload.get("server_sync_id") or "").strip():
-        return False, "Edge DM channels cannot belong to a server before promotion"
     return True, ""
 
 
-async def _channel_member_ids(db: AsyncSession, channel: Channel) -> set[int]:
+def _source_primary_id(payload: dict[str, Any]) -> str | None:
+    value = payload.get("id")
+    if value is None:
+        return None
+    source_id = str(value).strip()
+    return source_id or None
+
+
+def _source_primary_id_kwargs(payload: dict[str, Any]) -> dict[str, str]:
+    source_id = _source_primary_id(payload)
+    return {"id": source_id} if source_id else {}
+
+
+async def _find_by_source_primary_id(db: AsyncSession, model: Any, payload: dict[str, Any]) -> Any | None:
+    source_id = _source_primary_id(payload)
+    if not source_id:
+        return None
+    return await db.get(model, source_id)
+
+
+async def _channel_member_ids(db: AsyncSession, channel: Channel) -> set[str]:
     if channel.type == ChannelType.dm:
         result = await db.execute(select(DMParticipant.user_id).where(DMParticipant.channel_id == channel.id))
-        return {int(item) for item in result.scalars().all()}
+        return {str(item) for item in result.scalars().all()}
     if channel.server_id is None:
         return set()
     result = await db.execute(select(ServerMember.user_id).where(ServerMember.server_id == channel.server_id))
-    return {int(item) for item in result.scalars().all()}
+    return {str(item) for item in result.scalars().all()}
 
 
-async def _load_message_with_relations(db: AsyncSession, message_id: int) -> Message | None:
+async def _load_message_with_relations(db: AsyncSession, message_id: str) -> Message | None:
     result = await db.execute(
         select(Message)
         .where(Message.id == message_id)
@@ -207,6 +242,35 @@ async def _load_message_with_relations(db: AsyncSession, message_id: int) -> Mes
         )
     )
     return result.scalar_one_or_none()
+
+
+async def _serialize_dm_channel_for_ws(db: AsyncSession, channel: Channel) -> dict[str, Any]:
+    result = await db.execute(
+        select(User)
+        .join(DMParticipant, DMParticipant.user_id == User.id)
+        .where(DMParticipant.channel_id == channel.id)
+        .order_by(User.id.asc())
+    )
+    return {
+        "id": channel.id,
+        "server_id": channel.server_id,
+        "name": channel.name,
+        "type": channel.type.value if hasattr(channel.type, "value") else str(channel.type),
+        "position": channel.position,
+        "category": channel.category,
+        "created_by": channel.created_by,
+        "created_at": channel.created_at.isoformat() if channel.created_at else None,
+        "participants": [
+            {
+                "id": user.id,
+                "username": user.username,
+                "discriminator": user.discriminator,
+                "display_name": user.display_name,
+                "avatar": user.avatar,
+            }
+            for user in result.scalars().all()
+        ],
+    }
 
 
 def _serialize_reply_preview(message: Message | None) -> MessageReplyPreviewOut | None:
@@ -223,7 +287,7 @@ def _serialize_reply_preview(message: Message | None) -> MessageReplyPreviewOut 
 
 
 def _serialize_reactions(message: Message) -> list[MessageReactionOut]:
-    grouped: dict[str, set[int]] = {}
+    grouped: dict[str, set[str]] = {}
     for reaction in message.reactions or []:
         grouped.setdefault(reaction.emoji, set()).add(reaction.user_id)
     items = [
@@ -275,6 +339,7 @@ async def _find_release_flag_by_sync_id(db: AsyncSession, sync_id: str) -> Relea
 
 async def _serialize_user(_: AsyncSession, user: User) -> dict[str, Any]:
     return {
+        "id": user.id,
         "sync_id": user.sync_id,
         "sync_version": user.sync_version,
         "username": user.username,
@@ -284,7 +349,6 @@ async def _serialize_user(_: AsyncSession, user: User) -> dict[str, Any]:
         "directory_opt_in": user.directory_opt_in,
         "email": user.email,
         "avatar": user.avatar,
-        "password_hash": user.password_hash,
         "is_paid": user.is_paid,
         "created_at": user.created_at,
     }
@@ -293,6 +357,7 @@ async def _serialize_user(_: AsyncSession, user: User) -> dict[str, Any]:
 async def _serialize_server(db: AsyncSession, server: Server) -> dict[str, Any]:
     owner_sync_id = (await db.execute(select(User.sync_id).where(User.id == server.owner_id))).scalar_one_or_none()
     return {
+        "id": server.id,
         "sync_id": server.sync_id,
         "sync_version": server.sync_version,
         "name": server.name,
@@ -310,6 +375,7 @@ async def _serialize_channel(db: AsyncSession, channel: Channel) -> dict[str, An
     if channel.server_id is not None:
         server_sync_id = (await db.execute(select(Server.sync_id).where(Server.id == channel.server_id))).scalar_one_or_none()
     return {
+        "id": channel.id,
         "sync_id": channel.sync_id,
         "sync_version": channel.sync_version,
         "server_sync_id": server_sync_id,
@@ -339,6 +405,7 @@ async def _serialize_server_invite(db: AsyncSession, invite: ServerInvite) -> di
     server_sync_id = (await db.execute(select(Server.sync_id).where(Server.id == invite.server_id))).scalar_one_or_none()
     creator_sync_id = (await db.execute(select(User.sync_id).where(User.id == invite.created_by))).scalar_one_or_none()
     return {
+        "id": invite.id,
         "sync_id": invite.sync_id,
         "sync_version": invite.sync_version,
         "server_sync_id": server_sync_id,
@@ -367,6 +434,7 @@ async def _serialize_message(db: AsyncSession, message: Message) -> dict[str, An
     if message.reply_to_id is not None:
         reply_sync_id = (await db.execute(select(Message.sync_id).where(Message.id == message.reply_to_id))).scalar_one_or_none()
     return {
+        "id": message.id,
         "sync_id": message.sync_id,
         "sync_version": message.sync_version,
         "channel_sync_id": channel_sync_id,
@@ -438,7 +506,7 @@ async def enqueue_upsert_event(
 ) -> None:
     if not bridge_is_configured():
         return
-    payload = await serialize_entity(db, entity_type, entity)
+    payload = _json_payload(await serialize_entity(db, entity_type, entity))
     if settings.node_role == "edge":
         allowed, reason = _edge_write_allowed(entity_type, "upsert", payload, entity)
         if not allowed:
@@ -468,7 +536,7 @@ async def enqueue_delete_event(
 ) -> None:
     if not bridge_is_configured():
         return
-    payload = {"sync_id": entity.sync_id, "sync_version": entity.sync_version}
+    payload = _json_payload({"id": getattr(entity, "id", None), "sync_id": entity.sync_id, "sync_version": entity.sync_version})
     if entity_type == "channel":
         payload["type"] = _channel_type_value(entity)
     if settings.node_role == "edge":
@@ -546,6 +614,16 @@ async def _record_inbound(
     status_value: str,
     error: str | None = None,
 ) -> None:
+    existing = await db.get(ReplicationInboundLedger, event_id)
+    if existing is not None:
+        existing.source_node = source_node
+        existing.entity_type = entity_type
+        existing.entity_sync_id = entity_sync_id
+        existing.status = status_value
+        existing.error = error
+        existing.processed_at = datetime.now(tz=UTC)
+        return
+
     db.add(
         ReplicationInboundLedger(
             event_id=event_id,
@@ -560,6 +638,8 @@ async def _record_inbound(
 
 
 async def _existing_inbound_result(db: AsyncSession, event_id: str, event: dict[str, Any]) -> dict[str, Any] | None:
+    if event.get("snapshot"):
+        return None
     existing = await db.get(ReplicationInboundLedger, event_id)
     if existing is None:
         return None
@@ -621,10 +701,13 @@ async def _mark_duplicate(db: AsyncSession, event: dict[str, Any]) -> dict[str, 
 async def _apply_user(db: AsyncSession, event: dict[str, Any]) -> dict[str, Any]:
     payload = event.get("payload") or {}
     local = await _find_user_by_sync_id(db, event["entity_sync_id"])
+    if local is None:
+        local = await _find_by_source_primary_id(db, User, payload)
     if local is None and payload.get("email"):
         local = (
             await db.execute(select(User).where(func.lower(User.email) == str(payload["email"]).lower()))
         ).scalar_one_or_none()
+    is_new = local is None
 
     if event["action"] == "delete":
         if local is None:
@@ -637,6 +720,7 @@ async def _apply_user(db: AsyncSession, event: dict[str, Any]) -> dict[str, Any]
         await db.delete(local)
         await _record_inbound(db, event_id=event["event_id"], source_node=event["source_node"], entity_type=event["entity_type"], entity_sync_id=event["entity_sync_id"], status_value="applied")
         await db.commit()
+        await broadcast_user_event("deleted", local, bridge=False)
         return _result("applied", event)
 
     if local is not None and _incoming_version(event) < _local_version(local):
@@ -647,6 +731,7 @@ async def _apply_user(db: AsyncSession, event: dict[str, Any]) -> dict[str, Any]
 
     if local is None:
         local = User(
+            **_source_primary_id_kwargs(payload),
             sync_id=event["entity_sync_id"],
             username=str(payload.get("username") or "edge-user"),
             discriminator=str(payload.get("discriminator") or "0001"),
@@ -655,7 +740,7 @@ async def _apply_user(db: AsyncSession, event: dict[str, Any]) -> dict[str, Any]
             directory_opt_in=bool(payload.get("directory_opt_in")),
             email=str(payload.get("email") or f"{event['entity_sync_id']}@edge.invalid"),
             avatar=payload.get("avatar"),
-            password_hash=str(payload.get("password_hash") or f"edge-{uuid4()}"),
+            password_hash=hash_password(str(uuid4())),
             is_paid=bool(payload.get("is_paid")),
             created_at=_dt(payload.get("created_at")) or datetime.now(tz=UTC),
         )
@@ -668,8 +753,6 @@ async def _apply_user(db: AsyncSession, event: dict[str, Any]) -> dict[str, Any]
         local.directory_opt_in = bool(payload.get("directory_opt_in"))
         local.email = str(payload.get("email") or local.email)
         local.avatar = payload.get("avatar")
-        if payload.get("password_hash"):
-            local.password_hash = str(payload["password_hash"])
         local.is_paid = bool(payload.get("is_paid"))
     local.sync_id = event["entity_sync_id"]
     local.sync_version = max(1, _incoming_version(event))
@@ -678,23 +761,30 @@ async def _apply_user(db: AsyncSession, event: dict[str, Any]) -> dict[str, Any]
         await enqueue_upsert_event(db, "user", local, base_sync_version=max(local.sync_version - 1, 0), source_node=settings.node_role)
     await _record_inbound(db, event_id=event["event_id"], source_node=event["source_node"], entity_type=event["entity_type"], entity_sync_id=event["entity_sync_id"], status_value="applied")
     await db.commit()
+    await broadcast_public_user_update(local, bridge=False)
     return _result("applied", event)
 
 
 async def _apply_server(db: AsyncSession, event: dict[str, Any]) -> dict[str, Any]:
     payload = event.get("payload") or {}
     local = await _find_server_by_sync_id(db, event["entity_sync_id"])
+    if local is None:
+        local = await _find_by_source_primary_id(db, Server, payload)
+    is_new = local is None
     if event["action"] == "delete":
         if local is None:
             return _result("applied", event)
         conflict = _conflict_error(local, event)
         if conflict:
             return await _mark_rejected(db, event, conflict)
+        recipient_ids_result = await db.execute(select(ServerMember.user_id).where(ServerMember.server_id == local.id))
+        recipient_ids = {str(user_id) for user_id in recipient_ids_result.scalars().all()}
         if _should_echo_authoritative(event["source_node"]):
             await enqueue_delete_event(db, "server", local, base_sync_version=local.sync_version, source_node=settings.node_role)
         await db.delete(local)
         await _record_inbound(db, event_id=event["event_id"], source_node=event["source_node"], entity_type=event["entity_type"], entity_sync_id=event["entity_sync_id"], status_value="applied")
         await db.commit()
+        await broadcast_server_event(db, "deleted", local, recipients=recipient_ids, bridge=False)
         return _result("applied", event)
 
     owner = await _find_user_by_sync_id(db, str(payload.get("owner_sync_id") or ""))
@@ -708,6 +798,7 @@ async def _apply_server(db: AsyncSession, event: dict[str, Any]) -> dict[str, An
 
     if local is None:
         local = Server(
+            **_source_primary_id_kwargs(payload),
             sync_id=event["entity_sync_id"],
             name=str(payload.get("name") or "Server"),
             description=payload.get("description"),
@@ -730,12 +821,16 @@ async def _apply_server(db: AsyncSession, event: dict[str, Any]) -> dict[str, An
         await enqueue_upsert_event(db, "server", local, base_sync_version=max(local.sync_version - 1, 0), source_node=settings.node_role)
     await _record_inbound(db, event_id=event["event_id"], source_node=event["source_node"], entity_type=event["entity_type"], entity_sync_id=event["entity_sync_id"], status_value="applied")
     await db.commit()
+    await broadcast_server_event(db, "created" if is_new else "updated", local, bridge=False)
     return _result("applied", event)
 
 
 async def _apply_channel(db: AsyncSession, event: dict[str, Any]) -> dict[str, Any]:
     payload = event.get("payload") or {}
     local = await _find_channel_by_sync_id(db, event["entity_sync_id"])
+    if local is None:
+        local = await _find_by_source_primary_id(db, Channel, payload)
+    is_new = local is None
     if settings.node_role == "main" and event["source_node"] == "edge":
         if event["action"] == "delete":
             if local is not None and local.type != ChannelType.dm:
@@ -750,11 +845,19 @@ async def _apply_channel(db: AsyncSession, event: dict[str, Any]) -> dict[str, A
         conflict = _conflict_error(local, event)
         if conflict:
             return await _mark_rejected(db, event, conflict)
+        recipient_ids = set()
+        if local.type == ChannelType.dm:
+            recipient_ids_result = await db.execute(select(DMParticipant.user_id).where(DMParticipant.channel_id == local.id))
+            recipient_ids = {str(user_id) for user_id in recipient_ids_result.scalars().all()}
+        elif local.server_id is not None:
+            recipient_ids_result = await db.execute(select(ServerMember.user_id).where(ServerMember.server_id == local.server_id))
+            recipient_ids = {str(user_id) for user_id in recipient_ids_result.scalars().all()}
         if _should_echo_authoritative(event["source_node"]):
             await enqueue_delete_event(db, "channel", local, base_sync_version=local.sync_version, source_node=settings.node_role)
         await db.delete(local)
         await _record_inbound(db, event_id=event["event_id"], source_node=event["source_node"], entity_type=event["entity_type"], entity_sync_id=event["entity_sync_id"], status_value="applied")
         await db.commit()
+        await broadcast_channel_event(db, "deleted", local, recipients=recipient_ids, bridge=False)
         return _result("applied", event)
 
     creator = await _find_user_by_sync_id(db, str(payload.get("created_by_sync_id") or ""))
@@ -776,6 +879,7 @@ async def _apply_channel(db: AsyncSession, event: dict[str, Any]) -> dict[str, A
     channel_type = ChannelType(str(payload.get("type") or "text"))
     if local is None:
         local = Channel(
+            **_source_primary_id_kwargs(payload),
             sync_id=event["entity_sync_id"],
             server_id=server_id,
             name=str(payload.get("name") or "channel"),
@@ -800,23 +904,39 @@ async def _apply_channel(db: AsyncSession, event: dict[str, Any]) -> dict[str, A
         await enqueue_upsert_event(db, "channel", local, base_sync_version=max(local.sync_version - 1, 0), source_node=settings.node_role)
     await _record_inbound(db, event_id=event["event_id"], source_node=event["source_node"], entity_type=event["entity_type"], entity_sync_id=event["entity_sync_id"], status_value="applied")
     await db.commit()
+    await broadcast_channel_event(db, "created" if is_new else "updated", local, bridge=False)
     return _result("applied", event)
 
 
 async def _apply_server_member(db: AsyncSession, event: dict[str, Any]) -> dict[str, Any]:
     payload = event.get("payload") or {}
     local = (await db.execute(select(ServerMember).where(ServerMember.sync_id == event["entity_sync_id"]))).scalar_one_or_none()
+    is_new = local is None
     if event["action"] == "delete":
         if local is None:
             return _result("applied", event)
         conflict = _conflict_error(local, event)
         if conflict:
             return await _mark_rejected(db, event, conflict)
+        recipient_ids_result = await db.execute(select(ServerMember.user_id).where(ServerMember.server_id == local.server_id))
+        recipient_ids = {str(user_id) for user_id in recipient_ids_result.scalars().all()}
+        server = await db.get(Server, local.server_id)
+        user = await db.get(User, local.user_id)
         if _should_echo_authoritative(event["source_node"]):
             await enqueue_delete_event(db, "server_member", local, base_sync_version=local.sync_version, source_node=settings.node_role)
         await db.delete(local)
         await _record_inbound(db, event_id=event["event_id"], source_node=event["source_node"], entity_type=event["entity_type"], entity_sync_id=event["entity_sync_id"], status_value="applied")
         await db.commit()
+        if server is not None:
+            await broadcast_server_member_event(
+                db,
+                "deleted",
+                local,
+                user=user,
+                server=server,
+                recipients=recipient_ids,
+                bridge=False,
+            )
         return _result("applied", event)
 
     server = await _find_server_by_sync_id(db, str(payload.get("server_sync_id") or ""))
@@ -856,12 +976,15 @@ async def _apply_server_member(db: AsyncSession, event: dict[str, Any]) -> dict[
         await enqueue_upsert_event(db, "server_member", local, base_sync_version=max(local.sync_version - 1, 0), source_node=settings.node_role)
     await _record_inbound(db, event_id=event["event_id"], source_node=event["source_node"], entity_type=event["entity_type"], entity_sync_id=event["entity_sync_id"], status_value="applied")
     await db.commit()
+    await broadcast_server_member_event(db, "created" if is_new else "updated", local, user=user, server=server, bridge=False)
     return _result("applied", event)
 
 
 async def _apply_server_invite(db: AsyncSession, event: dict[str, Any]) -> dict[str, Any]:
     payload = event.get("payload") or {}
     local = (await db.execute(select(ServerInvite).where(ServerInvite.sync_id == event["entity_sync_id"]))).scalar_one_or_none()
+    if local is None:
+        local = await _find_by_source_primary_id(db, ServerInvite, payload)
     if event["action"] == "delete":
         if local is None:
             return _result("applied", event)
@@ -890,6 +1013,7 @@ async def _apply_server_invite(db: AsyncSession, event: dict[str, Any]) -> dict[
 
     if local is None:
         local = ServerInvite(
+            **_source_primary_id_kwargs(payload),
             sync_id=event["entity_sync_id"],
             server_id=server.id,
             code=str(payload.get("code") or uuid4().hex[:12]),
@@ -970,6 +1094,8 @@ async def _apply_dm_participant(db: AsyncSession, event: dict[str, Any]) -> dict
 async def _apply_message(db: AsyncSession, event: dict[str, Any]) -> dict[str, Any]:
     payload = event.get("payload") or {}
     local = await _find_message_by_sync_id(db, event["entity_sync_id"])
+    if local is None:
+        local = await _find_by_source_primary_id(db, Message, payload)
     if event["action"] == "delete":
         if local is None:
             return _result("applied", event)
@@ -983,11 +1109,12 @@ async def _apply_message(db: AsyncSession, event: dict[str, Any]) -> dict[str, A
         await db.delete(local)
         await _record_inbound(db, event_id=event["event_id"], source_node=event["source_node"], entity_type=event["entity_type"], entity_sync_id=event["entity_sync_id"], status_value="applied")
         await db.commit()
-        if settings.node_role == "main" and local_channel is not None:
+        if local_channel is not None:
             await publish_channel_event(
                 local_channel.id,
                 payload={"event": "message.deleted", "channel_id": local_channel.id, "data": {"id": local_id}},
                 extra_user_ids=await _channel_member_ids(db, local_channel),
+                bridge=False,
             )
         return _result("applied", event)
 
@@ -1014,6 +1141,7 @@ async def _apply_message(db: AsyncSession, event: dict[str, Any]) -> dict[str, A
     is_new = local is None
     if local is None:
         local = Message(
+            **_source_primary_id_kwargs(payload),
             sync_id=event["entity_sync_id"],
             channel_id=channel.id,
             author_id=author.id,
@@ -1034,23 +1162,31 @@ async def _apply_message(db: AsyncSession, event: dict[str, Any]) -> dict[str, A
     local.sync_id = event["entity_sync_id"]
     local.sync_version = max(1, _incoming_version(event))
 
+    if channel.type == ChannelType.dm:
+        await db.execute(delete(DMHiddenState).where(DMHiddenState.channel_id == channel.id))
+
     if _should_echo_authoritative(event["source_node"]):
         await enqueue_upsert_event(db, "message", local, base_sync_version=max(local.sync_version - 1, 0), source_node=settings.node_role)
     await _record_inbound(db, event_id=event["event_id"], source_node=event["source_node"], entity_type=event["entity_type"], entity_sync_id=event["entity_sync_id"], status_value="applied")
     await db.commit()
 
-    if settings.node_role == "main":
-        hydrated = await _load_message_with_relations(db, local.id)
-        if hydrated is not None:
-            await publish_channel_event(
-                channel.id,
-                payload={
-                    "event": "message.created" if is_new else "message.updated",
-                    "channel_id": channel.id,
-                    "data": _serialize_message_for_ws(hydrated),
-                },
-                extra_user_ids=await _channel_member_ids(db, channel),
-            )
+    hydrated = await _load_message_with_relations(db, local.id)
+    if hydrated is not None:
+        message_payload = _serialize_message_for_ws(hydrated)
+        message_payload["author"] = UserPublicOut.model_validate(author).model_dump(mode="json")
+        event_payload = {
+            "event": "message.created" if is_new else "message.updated",
+            "channel_id": channel.id,
+            "data": message_payload,
+        }
+        if channel.type == ChannelType.dm:
+            event_payload["channel"] = await _serialize_dm_channel_for_ws(db, channel)
+        await publish_channel_event(
+            channel.id,
+            payload=event_payload,
+            extra_user_ids=await _channel_member_ids(db, channel),
+            bridge=False,
+        )
     return _result("applied", event)
 
 
@@ -1064,13 +1200,14 @@ async def _apply_reaction(db: AsyncSession, event: dict[str, Any]) -> dict[str, 
         if conflict:
             return await _mark_rejected(db, event, conflict)
         emoji = local.emoji
+        reaction_user_id = local.user_id
         message = await db.get(Message, local.message_id)
         if _should_echo_authoritative(event["source_node"]):
             await enqueue_delete_event(db, "reaction", local, base_sync_version=local.sync_version, source_node=settings.node_role)
         await db.delete(local)
         await _record_inbound(db, event_id=event["event_id"], source_node=event["source_node"], entity_type=event["entity_type"], entity_sync_id=event["entity_sync_id"], status_value="applied")
         await db.commit()
-        if settings.node_role == "main" and message is not None:
+        if message is not None:
             channel = await db.get(Channel, message.channel_id)
             hydrated = await _load_message_with_relations(db, message.id)
             if channel is not None and hydrated is not None:
@@ -1082,12 +1219,13 @@ async def _apply_reaction(db: AsyncSession, event: dict[str, Any]) -> dict[str, 
                         "data": {
                             "message_id": hydrated.id,
                             "channel_id": hydrated.channel_id,
-                            "user_id": user.id,
+                            "user_id": reaction_user_id,
                             "emoji": emoji,
                             "message": _serialize_message_for_ws(hydrated),
                         },
                     },
                     extra_user_ids=await _channel_member_ids(db, channel),
+                    bridge=False,
                 )
         return _result("applied", event)
 
@@ -1135,24 +1273,24 @@ async def _apply_reaction(db: AsyncSession, event: dict[str, Any]) -> dict[str, 
     await _record_inbound(db, event_id=event["event_id"], source_node=event["source_node"], entity_type=event["entity_type"], entity_sync_id=event["entity_sync_id"], status_value="applied")
     await db.commit()
 
-    if settings.node_role == "main":
-        channel = await db.get(Channel, message.channel_id)
-        hydrated = await _load_message_with_relations(db, message.id)
-        if channel is not None and hydrated is not None:
-            await publish_channel_event(
-                channel.id,
-                payload={
-                    "event": "reaction.added",
-                    "channel_id": channel.id,
-                    "data": {
-                        "message_id": hydrated.id,
-                        "channel_id": hydrated.channel_id,
-                        "user_id": user.id,
-                        "emoji": local.emoji,
-                        "message": _serialize_message_for_ws(hydrated),
-                    },
+    channel = await db.get(Channel, message.channel_id)
+    hydrated = await _load_message_with_relations(db, message.id)
+    if channel is not None and hydrated is not None:
+        await publish_channel_event(
+            channel.id,
+            payload={
+                "event": "reaction.added",
+                "channel_id": channel.id,
+                "data": {
+                    "message_id": hydrated.id,
+                    "channel_id": hydrated.channel_id,
+                    "user_id": local.user_id,
+                    "emoji": local.emoji,
+                    "message": _serialize_message_for_ws(hydrated),
                 },
-                extra_user_ids=await _channel_member_ids(db, channel),
+            },
+            extra_user_ids=await _channel_member_ids(db, channel),
+            bridge=False,
         )
     return _result("applied", event)
 
@@ -1293,16 +1431,18 @@ async def build_bootstrap_events() -> list[dict[str, Any]]:
         for entity_type, query in entity_queries:
             result = await db.execute(query)
             for item in result.scalars().all():
+                sync_version = max(int(item.sync_version or 1), 1)
                 events.append(
                     {
-                        "event_id": str(uuid4()),
+                        "event_id": _bootstrap_event_id(settings.node_role, entity_type, item.sync_id, sync_version),
                         "schema_version": BRIDGE_SCHEMA_VERSION,
                         "source_node": settings.node_role,
                         "entity_type": entity_type,
                         "action": "upsert",
                         "entity_sync_id": item.sync_id,
-                        "base_sync_version": max(int(item.sync_version or 1) - 1, 0),
+                        "base_sync_version": max(sync_version - 1, 0),
                         "payload": await serialize_entity(db, entity_type, item),
+                        "snapshot": True,
                     }
                 )
     return events
@@ -1338,6 +1478,7 @@ async def process_outbox_batch() -> None:
                     "entity_sync_id": row.entity_sync_id,
                     "base_sync_version": row.base_sync_version,
                     "payload": row.payload,
+                    "snapshot": False,
                 }
                 for row in rows
             ]
@@ -1377,15 +1518,24 @@ async def process_outbox_batch() -> None:
             await db.commit()
 
 
-async def maybe_seed_from_main() -> None:
+def _resync_interval_seconds() -> float:
+    return max(5.0, float(settings.sync_bridge_resync_interval_seconds))
+
+
+async def maybe_resync_from_main(*, force: bool = False) -> bool:
+    global _last_main_resync_attempt_at, _last_main_resync_succeeded
     if not bridge_is_configured() or settings.node_role != "edge":
-        return
-    async with AsyncSessionLocal() as db:
-        seen_main = await db.execute(
-            select(func.count()).select_from(ReplicationInboundLedger).where(ReplicationInboundLedger.source_node == "main")
-        )
-        if int(seen_main.scalar_one() or 0) > 0:
-            return
+        return False
+    if settings.sync_bridge_resync_interval_seconds <= 0 and not force:
+        return False
+    now = datetime.now(tz=UTC)
+    if not force and _last_main_resync_attempt_at is not None:
+        retry_interval = _resync_interval_seconds() if _last_main_resync_succeeded else min(30.0, _resync_interval_seconds())
+        elapsed = (now - _last_main_resync_attempt_at).total_seconds()
+        if elapsed < retry_interval:
+            return False
+    _last_main_resync_attempt_at = now
+
     body = _json_bytes({"request": "bootstrap", "schema_version": BRIDGE_SCHEMA_VERSION})
     try:
         async with httpx.AsyncClient(timeout=settings.sync_bridge_request_timeout_seconds) as client:
@@ -1394,15 +1544,21 @@ async def maybe_seed_from_main() -> None:
         events = (response.json().get("data", {}) or {}).get("events") or response.json().get("events") or []
         if events:
             await apply_replication_events(events)
+        logger.info("Edge resynced %s records from main", len(events))
+        _last_main_resync_succeeded = True
+        return True
     except Exception as exc:  # pragma: no cover - bootstrap failure path
-        logger.warning("Edge bootstrap sync failed: %s", exc)
+        logger.warning("Edge resync from main failed: %s", exc)
+        _last_main_resync_succeeded = False
+        return False
 
 
 async def _sync_worker() -> None:
-    await maybe_seed_from_main()
+    await maybe_resync_from_main(force=True)
     try:
         while True:
             await process_outbox_batch()
+            await maybe_resync_from_main()
             await asyncio.sleep(max(0.5, float(settings.sync_bridge_poll_interval_seconds)))
     except asyncio.CancelledError:
         raise

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Channel, ChannelType, DMParticipant, Message, Server, ServerMember
 
 
-async def get_server_or_404(db: AsyncSession, server_id: int) -> Server:
+async def get_server_or_404(db: AsyncSession, server_id: str) -> Server:
     result = await db.execute(select(Server).where(Server.id == server_id))
     server = result.scalar_one_or_none()
     if server is None:
@@ -13,7 +13,7 @@ async def get_server_or_404(db: AsyncSession, server_id: int) -> Server:
     return server
 
 
-async def get_channel_or_404(db: AsyncSession, channel_id: int) -> Channel:
+async def get_channel_or_404(db: AsyncSession, channel_id: str) -> Channel:
     result = await db.execute(select(Channel).where(Channel.id == channel_id))
     channel = result.scalar_one_or_none()
     if channel is None:
@@ -21,7 +21,7 @@ async def get_channel_or_404(db: AsyncSession, channel_id: int) -> Channel:
     return channel
 
 
-async def get_message_or_404(db: AsyncSession, message_id: int) -> Message:
+async def get_message_or_404(db: AsyncSession, message_id: str) -> Message:
     result = await db.execute(select(Message).where(Message.id == message_id))
     message = result.scalar_one_or_none()
     if message is None:
@@ -29,7 +29,7 @@ async def get_message_or_404(db: AsyncSession, message_id: int) -> Message:
     return message
 
 
-async def ensure_server_member(db: AsyncSession, server_id: int, user_id: int) -> ServerMember:
+async def ensure_server_member(db: AsyncSession, server_id: str, user_id: str) -> ServerMember:
     result = await db.execute(
         select(ServerMember).where(and_(ServerMember.server_id == server_id, ServerMember.user_id == user_id))
     )
@@ -39,7 +39,7 @@ async def ensure_server_member(db: AsyncSession, server_id: int, user_id: int) -
     return membership
 
 
-async def ensure_channel_access(db: AsyncSession, channel: Channel, user_id: int) -> None:
+async def ensure_channel_access(db: AsyncSession, channel: Channel, user_id: str) -> None:
     if channel.type == ChannelType.dm:
         participant = await db.execute(
             select(DMParticipant).where(

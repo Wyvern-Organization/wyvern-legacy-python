@@ -22,28 +22,28 @@ class ServerUpdate(BaseModel):
 class ServerOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: str
     name: str
     description: str | None
     icon: str | None
     directory_opt_in: bool
-    owner_id: int
+    owner_id: str
     created_at: datetime
 
 
 class ServerMemberOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    server_id: int
-    user_id: int
+    server_id: str
+    user_id: str
     role: MemberRole
     joined_at: datetime
 
 
 class ServerInviteOut(BaseModel):
     code: str
-    server_id: int
-    created_by: int
+    server_id: str
+    created_by: str
     created_at: datetime
     invite_path: str
 

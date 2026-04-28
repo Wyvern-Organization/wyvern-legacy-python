@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, DateTime, Integer, String, UniqueConstraint, fun
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.services.ids import ID_COLUMN_LENGTH, generate_entity_id
 from app.models.sync import SyncMixin
 
 
@@ -13,7 +14,8 @@ class User(SyncMixin, Base):
         UniqueConstraint("username", "discriminator", name="uq_users_username_discriminator"),
     )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    id: Mapped[str] = mapped_column(String(ID_COLUMN_LENGTH), primary_key=True, index=True, default=lambda: generate_entity_id("user"))
+    legacy_id: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True, index=True)
     username: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     discriminator: Mapped[str] = mapped_column(String(4), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(64), nullable=True)

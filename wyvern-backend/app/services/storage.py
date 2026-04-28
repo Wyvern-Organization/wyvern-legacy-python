@@ -11,19 +11,51 @@ ALLOWED_MIME_PREFIXES = (
     "image/",
     "video/",
     "audio/",
-    "text/",
+    "text/plain",
+    "text/markdown",
     "application/pdf",
     "application/json",
     "application/zip",
-    "application/octet-stream",
 )
+
+BLOCKED_MIME_TYPES = {
+    "image/svg+xml",
+    "text/html",
+    "application/xhtml+xml",
+    "text/xml",
+    "application/xml",
+    "text/javascript",
+    "application/javascript",
+}
+
+BLOCKED_EXTENSIONS = {
+    ".svg",
+    ".html",
+    ".htm",
+    ".xhtml",
+    ".xml",
+    ".js",
+    ".mjs",
+}
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 async def virus_scan_hook(file_obj: UploadFile) -> bool:
-    # Placeholder for integrating an external scanning service.
-    _ = file_obj
+    filename = (file_obj.filename or "").lower()
+    if any(filename.endswith(ext) for ext in BLOCKED_EXTENSIONS):
+        return False
+
+    content_type = (file_obj.content_type or "").lower()
+    if content_type in BLOCKED_MIME_TYPES:
+        return False
+
+    await file_obj.seek(0)
+    head = await file_obj.read(4096)
+    await file_obj.seek(0)
+    sniff = head.lower()
+    if b"<script" in sniff or b"<!doctype html" in sniff or b"<svg" in sniff:
+        return False
     return True
 
 
@@ -31,14 +63,18 @@ def _validate_mime_type(content_type: str | None) -> None:
     if not content_type:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing MIME type")
 
+    lowered = content_type.lower()
+    if lowered in BLOCKED_MIME_TYPES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported MIME type")
+
     if not any(
-        content_type.startswith(prefix) if prefix.endswith("/") else content_type == prefix
+        lowered.startswith(prefix) if prefix.endswith("/") else lowered == prefix
         for prefix in ALLOWED_MIME_PREFIXES
     ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported MIME type")
 
 
-async def upload_file_to_storage(file: UploadFile, user_id: int) -> str:
+async def upload_file_to_storage(file: UploadFile, user_id: str) -> str:
     settings = get_settings()
     _validate_mime_type(file.content_type)
 

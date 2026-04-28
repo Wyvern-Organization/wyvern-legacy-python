@@ -74,16 +74,14 @@ class AdminAllowlistService:
             return set(usernames)
 
     async def is_admin(self, username: str | None, discriminator: str | None = None) -> bool:
-        if not username:
+        if not username or not discriminator:
             return False
         allowlist = await self.get_allowlist()
         normalized_username = self._normalize_username(username)
-        candidates = {normalized_username}
-        if discriminator:
-            normalized_discriminator = discriminator.strip()
-            if normalized_discriminator:
-                candidates.add(f"{normalized_username}#{normalized_discriminator}")
-        return any(candidate in allowlist for candidate in candidates)
+        normalized_discriminator = discriminator.strip()
+        if not normalized_discriminator:
+            return False
+        return f"{normalized_username}#{normalized_discriminator}" in allowlist
 
 
 admin_allowlist_service = AdminAllowlistService()

@@ -8,7 +8,7 @@ from app.models.enums import PresenceStatus
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: str
     username: str
     discriminator: str
     display_name: str | None
@@ -20,12 +20,29 @@ class UserOut(BaseModel):
     created_at: datetime
 
 
+class UserMeOut(UserOut):
+    is_admin: bool = False
+
+
+class UserPublicOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    username: str
+    discriminator: str
+    display_name: str | None
+    bio: str | None
+    directory_opt_in: bool
+    avatar: str | None
+    created_at: datetime
+
+
 class PresenceUpdateRequest(BaseModel):
     status: PresenceStatus = Field(description="online, idle, dnd")
 
 
 class PresenceOut(BaseModel):
-    user_id: int
+    user_id: str
     status: PresenceStatus
 
 

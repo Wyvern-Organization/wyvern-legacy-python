@@ -5,8 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models import User
-from app.schemas.user import PresenceOut, PresenceUpdateRequest, UserOut
+from app.schemas.user import PresenceOut, PresenceUpdateRequest, UserMeOut, UserOut
+from app.services.admin_allowlist import admin_allowlist_service
+from app.services.live_bridge import queue_realtime_event
 from app.services.presence import presence_service
+from app.services.realtime import broadcast_presence_update, broadcast_public_user_update
 from app.services.sync_bridge import bump_sync_version, enqueue_upsert_event
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
@@ -23,9 +26,15 @@ class UserUpdateRequest(BaseModel):
     directory_opt_in: bool | None = None
 
 
+async def build_current_user_payload(current_user: User) -> dict:
+    payload = UserMeOut.model_validate(current_user).model_dump()
+    payload["is_admin"] = await admin_allowlist_service.is_admin(current_user.username, current_user.discriminator)
+    return payload
+
+
 @router.get("/me")
 async def me(current_user: User = Depends(get_current_user)) -> dict:
-    return success_response(UserOut.model_validate(current_user).model_dump())
+    return success_response(await build_current_user_payload(current_user))
 
 
 @router.patch("/me")
@@ -50,7 +59,8 @@ async def update_me(
     await enqueue_upsert_event(db, "user", current_user, base_sync_version=base_sync_version)
     await db.commit()
     await db.refresh(current_user)
-    return success_response(UserOut.model_validate(current_user).model_dump())
+    await broadcast_public_user_update(current_user, extra_user_ids={current_user.id})
+    return success_response(await build_current_user_payload(current_user))
 
 
 @router.get("/lookup")
@@ -109,7 +119,7 @@ async def user_directory(db: AsyncSession = Depends(get_db), _: User = Depends(g
 
 
 @router.get("/{user_id}")
-async def get_user(user_id: int, db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)) -> dict:
+async def get_user(user_id: str, db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)) -> dict:
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if user is None:
@@ -119,11 +129,13 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db), _: User = D
 
 @router.put("/me/presence")
 async def set_presence(payload: PresenceUpdateRequest, current_user: User = Depends(get_current_user)) -> dict:
-    await presence_service.set_presence(current_user.id, payload.status)
+    normalized = await presence_service.set_presence(current_user.id, payload.status)
+    await broadcast_presence_update(current_user.id, normalized)
+    queue_realtime_event({"kind": "presence", "user_id": current_user.id, "status": normalized.value})
     return success_response(PresenceOut(user_id=current_user.id, status=payload.status).model_dump())
 
 
 @router.get("/{user_id}/presence")
-async def get_presence(user_id: int, _: User = Depends(get_current_user)) -> dict:
+async def get_presence(user_id: str, _: User = Depends(get_current_user)) -> dict:
     status_value = await presence_service.get_presence(user_id)
     return success_response(PresenceOut(user_id=user_id, status=status_value).model_dump())

@@ -2,6 +2,7 @@ services:
   app:
     build: .
     container_name: wyvern-app
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -10,23 +11,24 @@ services:
     env_file:
       - .env
     ports:
-      - "8000:8000"
+      - "8009:8000"
     volumes:
       - ./:/app
 
   postgres:
     image: postgres:16
     container_name: wyvern-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: wyvern
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-wyvern}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wyvern_local_dev_only}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d wyvern"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wyvern} -d wyvern"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,8 +36,9 @@ services:
   redis:
     image: redis:7
     container_name: wyvern-redis
+    restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
 

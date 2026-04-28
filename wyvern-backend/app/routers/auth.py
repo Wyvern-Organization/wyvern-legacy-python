@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 import random
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import and_, func, select
@@ -24,6 +25,7 @@ from app.services.sync_bridge import (
     decode_edge_handoff_grant,
     enqueue_upsert_event,
 )
+from app.services.rate_limiter import rate_limiter
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
 from app.utils.security import (
@@ -41,6 +43,15 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
 
 
+async def _throttle_auth(actor_key: str, key_prefix: str) -> None:
+    await rate_limiter.check(
+        key_prefix=key_prefix,
+        actor_id=actor_key,
+        limit=settings.rate_limit_auth_count,
+        window_seconds=settings.rate_limit_auth_window_seconds,
+    )
+
+
 async def _generate_discriminator(db: AsyncSession, username: str) -> str:
     result = await db.execute(select(User.discriminator).where(User.username == username))
     used = {row[0] for row in result.all()}
@@ -56,6 +67,7 @@ async def _generate_discriminator(db: AsyncSession, username: str) -> str:
 
 @router.post("/register")
 async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db)) -> dict:
+    await _throttle_auth(payload.email.lower(), "auth.register")
     existing = await db.execute(select(User).where(func.lower(User.email) == payload.email.lower()))
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already in use")
@@ -97,6 +109,7 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
 
 @router.post("/login")
 async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> dict:
+    await _throttle_auth(payload.email.lower(), "auth.login")
     result = await db.execute(select(User).where(func.lower(User.email) == payload.email.lower()))
     user = result.scalar_one_or_none()
 
@@ -124,6 +137,7 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> di
 
 @router.post("/refresh")
 async def refresh_tokens(payload: RefreshRequest, db: AsyncSession = Depends(get_db)) -> dict:
+    await _throttle_auth(hash_token(payload.refresh_token), "auth.refresh")
     try:
         token_payload = decode_token(payload.refresh_token)
     except TokenError as exc:
@@ -132,7 +146,9 @@ async def refresh_tokens(payload: RefreshRequest, db: AsyncSession = Depends(get
     if token_payload.get("type") != "refresh":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
 
-    user_id = int(token_payload.get("sub", 0))
+    user_id = str(token_payload.get("sub") or "")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject")
     token_hash = hash_token(payload.refresh_token)
 
     result = await db.execute(
@@ -181,7 +197,9 @@ async def logout(payload: LogoutRequest, db: AsyncSession = Depends(get_db)) -> 
     if token_payload.get("type") != "refresh":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
 
-    user_id = int(token_payload.get("sub", 0))
+    user_id = str(token_payload.get("sub") or "")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject")
     token_hash = hash_token(payload.refresh_token)
 
     result = await db.execute(
@@ -243,7 +261,7 @@ async def edge_exchange(payload: EdgeExchangeRequest, db: AsyncSession = Depends
             directory_opt_in=bool(user_snapshot.get("directory_opt_in")),
             email=str(user_snapshot.get("email") or f"{user_sync_id}@edge.invalid"),
             avatar=user_snapshot.get("avatar"),
-            password_hash=hash_password(str(user_sync_id)),
+            password_hash=hash_password(str(uuid4())),
             is_paid=bool(user_snapshot.get("is_paid")),
         )
         db.add(user)

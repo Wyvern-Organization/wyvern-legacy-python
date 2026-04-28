@@ -1,0 +1,13 @@
+# Local tooling and editor state
+.vscode/
+.idea/
+.playwright-cli/
+wyvern-backend/.playwright-cli/
+
+# Netlify local project state
+landing/.netlify/
+
+# Local backups and generated artifacts
+*.zip
+__pycache__/
+*.py[cod]

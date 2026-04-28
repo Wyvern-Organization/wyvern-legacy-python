@@ -76,23 +76,23 @@ async def admin_overview(
     newest_users = users[:activity_limit]
     newest_servers = [server for server, _ in server_rows][:activity_limit]
 
-    channel_ids = {int(row.channel_id) for row in message_rows if row.channel_id is not None}
+    channel_ids = {str(row.channel_id) for row in message_rows if row.channel_id is not None}
     channel_map = {}
     if channel_ids:
         channels_result = await db.execute(
             select(Channel.id, Channel.name, Channel.type, Channel.server_id).where(Channel.id.in_(channel_ids))
         )
         for channel_id, channel_name, channel_type, server_id in channels_result.all():
-            channel_map[int(channel_id)] = {
-                "id": int(channel_id),
+            channel_map[str(channel_id)] = {
+                "id": str(channel_id),
                 "name": channel_name,
                 "type": channel_type.value if hasattr(channel_type, "value") else str(channel_type),
-                "server_id": int(server_id) if server_id is not None else None,
+                "server_id": str(server_id) if server_id is not None else None,
             }
 
     user_map = {user.id: user for user in users}
 
-    def user_label(user_id: int) -> str:
+    def user_label(user_id: str) -> str:
         user = user_map.get(user_id)
         if user is None:
             return f"User {user_id}"
@@ -102,7 +102,7 @@ async def admin_overview(
     activities: list[dict] = []
 
     for row in message_rows:
-        channel = channel_map.get(int(row.channel_id)) if row.channel_id is not None else None
+        channel = channel_map.get(str(row.channel_id)) if row.channel_id is not None else None
         server_name = None
         if channel and channel.get("server_id"):
             server_name = server_map.get(channel["server_id"]).name if server_map.get(channel["server_id"]) else None
@@ -128,13 +128,13 @@ async def admin_overview(
             {
                 "type": "message.created",
                 "timestamp": row.created_at,
-                "title": f"{user_label(int(row.author_id))} sent a message",
+                "title": f"{user_label(str(row.author_id))} sent a message",
                 "subtitle": subtitle,
                 "preview": snippet,
                 "meta": {
-                    "message_id": int(row.id),
-                    "channel_id": int(row.channel_id),
-                    "author_id": int(row.author_id),
+                    "message_id": str(row.id),
+                    "channel_id": str(row.channel_id),
+                    "author_id": str(row.author_id),
                     "server_id": channel.get("server_id") if channel else None,
                 },
             }
@@ -142,17 +142,17 @@ async def admin_overview(
 
     for row in joined_rows:
         role_value = row.role.value if hasattr(row.role, "value") else str(row.role)
-        server = server_map.get(int(row.server_id))
+        server = server_map.get(str(row.server_id))
         activities.append(
             {
                 "type": "server.member.joined",
                 "timestamp": row.joined_at,
-                "title": f"{user_label(int(row.user_id))} joined a server",
-                "subtitle": server.name if server else f"Server {int(row.server_id)}",
+                "title": f"{user_label(str(row.user_id))} joined a server",
+                "subtitle": server.name if server else f"Server {row.server_id}",
                 "preview": f"Role: {role_value}",
                 "meta": {
-                    "server_id": int(row.server_id),
-                    "user_id": int(row.user_id),
+                    "server_id": str(row.server_id),
+                    "user_id": str(row.user_id),
                     "role": role_value,
                 },
             }
@@ -166,7 +166,7 @@ async def admin_overview(
                 "title": f"New user registered: {user.display_name or user.username}",
                 "subtitle": f"{user.username}#{user.discriminator}",
                 "preview": user.email,
-                "meta": {"user_id": int(user.id)},
+                "meta": {"user_id": str(user.id)},
             }
         )
 
@@ -176,9 +176,9 @@ async def admin_overview(
                 "type": "server.created",
                 "timestamp": server.created_at,
                 "title": f"Server created: {server.name}",
-                "subtitle": f"Owner {user_label(int(server.owner_id))}",
+                "subtitle": f"Owner {user_label(str(server.owner_id))}",
                 "preview": (server.description or "").strip(),
-                "meta": {"server_id": int(server.id), "owner_id": int(server.owner_id)},
+                "meta": {"server_id": str(server.id), "owner_id": str(server.owner_id)},
             }
         )
 
@@ -219,17 +219,17 @@ async def admin_release_audit(
 ) -> dict:
     audits = await build_release_audit(db, limit)
     user_ids = {audit.promoted_by_user_id for audit in audits if audit.promoted_by_user_id is not None}
-    user_labels: dict[int, str] = {}
+    user_labels: dict[str, str] = {}
     if user_ids:
         result = await db.execute(select(User).where(User.id.in_(user_ids)))
         for user in result.scalars().all():
-            user_labels[int(user.id)] = user.display_name or user.username
+            user_labels[str(user.id)] = user.display_name or user.username
 
     payload = []
     for audit in audits:
         item = audit.model_dump(mode="json")
         if audit.promoted_by_user_id is not None:
-            item["promoted_by_label"] = user_labels.get(int(audit.promoted_by_user_id))
+            item["promoted_by_label"] = user_labels.get(str(audit.promoted_by_user_id))
         payload.append(item)
     return success_response({"items": payload})
 
