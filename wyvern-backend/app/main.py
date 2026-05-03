@@ -161,6 +161,16 @@ async def indexing_mode_middleware(request: Request, call_next):
 
     return await call_next(request)
 
+
+@app.middleware("http")
+async def media_security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    media_prefix = f"{settings.media_url_prefix}/"
+    if request.url.path == settings.media_url_prefix or request.url.path.startswith(media_prefix):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
+    return response
+
 EDGE_API_V1_PREFIX = f"/edge{settings.api_v1_prefix}"
 BROWSER_API_ROUTERS = (
     auth.router,

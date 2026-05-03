@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-import random
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -26,6 +25,7 @@ from app.services.sync_bridge import (
     enqueue_upsert_event,
 )
 from app.services.rate_limiter import rate_limiter
+from app.services.usernames import generate_discriminator
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
 from app.utils.security import (
@@ -52,19 +52,6 @@ async def _throttle_auth(actor_key: str, key_prefix: str) -> None:
     )
 
 
-async def _generate_discriminator(db: AsyncSession, username: str) -> str:
-    result = await db.execute(select(User.discriminator).where(User.username == username))
-    used = {row[0] for row in result.all()}
-
-    if len(used) >= 9999:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username is unavailable")
-
-    while True:
-        candidate = f"{random.randint(1, 9999):04d}"
-        if candidate not in used:
-            return candidate
-
-
 @router.post("/register")
 async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db)) -> dict:
     await _throttle_auth(payload.email.lower(), "auth.register")
@@ -72,7 +59,7 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already in use")
 
-    discriminator = await _generate_discriminator(db, payload.username)
+    discriminator = await generate_discriminator(db, payload.username)
 
     user = User(
         username=payload.username,
@@ -222,7 +209,7 @@ async def logout(payload: LogoutRequest, db: AsyncSession = Depends(get_db)) -> 
 
 @router.post("/edge-handoff")
 async def edge_handoff(current_user: User = Depends(get_current_user)) -> dict:
-    if settings.node_role != "main" or not settings.edge_mode_enabled:
+    if settings.node_role != "main" or not settings.edge_mode_enabled or not settings.sync_shared_secret:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Edge Mode is not configured")
     grant, expires_at = create_edge_handoff_grant(current_user)
     return success_response(EdgeHandoffOut(grant=grant, expires_at=expires_at).model_dump(mode="json"))
@@ -230,7 +217,7 @@ async def edge_handoff(current_user: User = Depends(get_current_user)) -> dict:
 
 @router.post("/edge-exchange")
 async def edge_exchange(payload: EdgeExchangeRequest, db: AsyncSession = Depends(get_db)) -> dict:
-    if not settings.edge_mode_enabled:
+    if not settings.edge_mode_enabled or not settings.sync_shared_secret:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Edge Mode is not configured")
 
     try:
@@ -262,7 +249,7 @@ async def edge_exchange(payload: EdgeExchangeRequest, db: AsyncSession = Depends
             email=str(user_snapshot.get("email") or f"{user_sync_id}@edge.invalid"),
             avatar=user_snapshot.get("avatar"),
             password_hash=hash_password(str(uuid4())),
-            is_paid=bool(user_snapshot.get("is_paid")),
+            is_paid=False,
         )
         db.add(user)
         await db.flush()

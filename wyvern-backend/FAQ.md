@@ -268,7 +268,7 @@ Yes. You can search by username or `username#1234`.
 Yes. Wyvern includes an admin UI at `/admin`.
 
 ### Who can access admin features?
-Admin access is controlled by an allowlist in `admins.json`.
+Admin access is controlled by the `ADMIN_ALLOWLIST` environment variable using exact `username#1234` handles.
 
 ### Can I make myself an admin from the UI?
 No. Admin access is determined by the allowlist, not a self-service toggle.

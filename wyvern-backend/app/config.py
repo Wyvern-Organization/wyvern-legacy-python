@@ -1,6 +1,5 @@
 from functools import lru_cache
 from pathlib import Path
-import secrets
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -27,7 +26,7 @@ class Settings(BaseSettings):
     sync_bridge_request_timeout_seconds: float = 10.0
     sync_bridge_resync_interval_seconds: float = 300.0
 
-    jwt_secret_key: str = Field(default_factory=lambda: secrets.token_urlsafe(48))
+    jwt_secret_key: str = Field(validation_alias=AliasChoices("JWT_SECRET_KEY", "jwt_secret_key"))
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
@@ -45,12 +44,16 @@ class Settings(BaseSettings):
     free_upload_limit_bytes: int = 25 * 1024 * 1024
     paid_upload_limit_bytes: int = 100 * 1024 * 1024
 
+    admin_allowlist: str = ""
+
     rate_limit_message_count: int = 5
     rate_limit_message_window_seconds: int = 1
     rate_limit_upload_count: int = 10
     rate_limit_upload_window_seconds: int = 60
     rate_limit_auth_count: int = 10
     rate_limit_auth_window_seconds: int = 60
+    rate_limit_webhook_count: int = 30
+    rate_limit_webhook_window_seconds: int = 60
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -69,6 +72,16 @@ class Settings(BaseSettings):
         if not self.cors_origins:
             return []
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
+
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def validate_jwt_secret_key(cls, value: str) -> str:
+        normalized = (value or "").strip()
+        if not normalized:
+            raise ValueError("JWT_SECRET_KEY is required")
+        if len(normalized) < 32:
+            raise ValueError("JWT_SECRET_KEY must be at least 32 characters")
+        return normalized
 
     @field_validator("media_url_prefix", mode="before")
     @classmethod
@@ -108,6 +121,21 @@ class Settings(BaseSettings):
             return None
         normalized = str(value).strip()
         return normalized or None
+
+    @field_validator("sync_shared_secret", mode="before")
+    @classmethod
+    def normalize_sync_shared_secret(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = str(value).strip()
+        return normalized or None
+
+    @field_validator("admin_allowlist", mode="before")
+    @classmethod
+    def normalize_admin_allowlist(cls, value: str | None) -> str:
+        if value is None:
+            return ""
+        return str(value).strip()
 
     @field_validator("giphy_rating", mode="before")
     @classmethod

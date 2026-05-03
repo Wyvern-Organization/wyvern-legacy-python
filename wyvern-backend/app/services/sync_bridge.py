@@ -88,7 +88,7 @@ def bridge_is_configured() -> bool:
 
 
 def edge_mode_is_available() -> bool:
-    return settings.node_role == "main" and bool(settings.edge_mode_enabled)
+    return settings.node_role == "main" and bool(settings.edge_mode_enabled and settings.sync_shared_secret)
 
 
 def _json_default(value: Any) -> Any:
@@ -139,7 +139,9 @@ def verify_bridge_signature(body: bytes, timestamp: str | None, signature: str |
 
 
 def _handoff_secret() -> str:
-    return settings.sync_shared_secret or settings.jwt_secret_key
+    if not settings.sync_shared_secret:
+        raise RuntimeError("SYNC_SHARED_SECRET is required for edge handoff grants")
+    return settings.sync_shared_secret
 
 
 def _dt(value: str | None) -> datetime | None:
@@ -199,6 +201,12 @@ def _channel_type_value(channel: Channel | None) -> str:
 def _edge_write_allowed(entity_type: str, action: str, payload: dict[str, Any], entity: Any | None = None) -> tuple[bool, str]:
     if entity_type not in EDGE_PROMOTABLE_ENTITY_TYPES:
         return False, f"Edge writes for {entity_type} are not promoted before stable approval"
+    if entity_type == "channel":
+        channel_type = payload.get("type")
+        if entity is not None:
+            channel_type = _channel_type_value(entity)
+        if channel_type != ChannelType.dm.value:
+            return False, "Only edge DM channel writes are promoted before stable approval"
     return True, ""
 
 
@@ -349,7 +357,6 @@ async def _serialize_user(_: AsyncSession, user: User) -> dict[str, Any]:
         "directory_opt_in": user.directory_opt_in,
         "email": user.email,
         "avatar": user.avatar,
-        "is_paid": user.is_paid,
         "created_at": user.created_at,
     }
 
@@ -576,7 +583,6 @@ def create_edge_handoff_grant(user: User) -> tuple[str, datetime]:
             "bio": user.bio,
             "directory_opt_in": user.directory_opt_in,
             "avatar": user.avatar,
-            "is_paid": user.is_paid,
             "created_at": user.created_at.astimezone(UTC).isoformat() if user.created_at else None,
         },
     }
@@ -698,6 +704,33 @@ async def _mark_duplicate(db: AsyncSession, event: dict[str, Any]) -> dict[str, 
     return _result("duplicate", event)
 
 
+def _build_user_from_sync_payload(event: dict[str, Any], payload: dict[str, Any]) -> User:
+    return User(
+        **_source_primary_id_kwargs(payload),
+        sync_id=event["entity_sync_id"],
+        username=str(payload.get("username") or "edge-user"),
+        discriminator=str(payload.get("discriminator") or "0001"),
+        display_name=payload.get("display_name"),
+        bio=payload.get("bio"),
+        directory_opt_in=bool(payload.get("directory_opt_in")),
+        email=str(payload.get("email") or f"{event['entity_sync_id']}@edge.invalid"),
+        avatar=payload.get("avatar"),
+        password_hash=hash_password(str(uuid4())),
+        is_paid=False,
+        created_at=_dt(payload.get("created_at")) or datetime.now(tz=UTC),
+    )
+
+
+def _apply_user_sync_payload(local: User, payload: dict[str, Any]) -> None:
+    local.username = str(payload.get("username") or local.username)
+    local.discriminator = str(payload.get("discriminator") or local.discriminator)
+    local.display_name = payload.get("display_name")
+    local.bio = payload.get("bio")
+    local.directory_opt_in = bool(payload.get("directory_opt_in"))
+    local.email = str(payload.get("email") or local.email)
+    local.avatar = payload.get("avatar")
+
+
 async def _apply_user(db: AsyncSession, event: dict[str, Any]) -> dict[str, Any]:
     payload = event.get("payload") or {}
     local = await _find_user_by_sync_id(db, event["entity_sync_id"])
@@ -730,30 +763,10 @@ async def _apply_user(db: AsyncSession, event: dict[str, Any]) -> dict[str, Any]
         return await _mark_rejected(db, event, conflict)
 
     if local is None:
-        local = User(
-            **_source_primary_id_kwargs(payload),
-            sync_id=event["entity_sync_id"],
-            username=str(payload.get("username") or "edge-user"),
-            discriminator=str(payload.get("discriminator") or "0001"),
-            display_name=payload.get("display_name"),
-            bio=payload.get("bio"),
-            directory_opt_in=bool(payload.get("directory_opt_in")),
-            email=str(payload.get("email") or f"{event['entity_sync_id']}@edge.invalid"),
-            avatar=payload.get("avatar"),
-            password_hash=hash_password(str(uuid4())),
-            is_paid=bool(payload.get("is_paid")),
-            created_at=_dt(payload.get("created_at")) or datetime.now(tz=UTC),
-        )
+        local = _build_user_from_sync_payload(event, payload)
         db.add(local)
     else:
-        local.username = str(payload.get("username") or local.username)
-        local.discriminator = str(payload.get("discriminator") or local.discriminator)
-        local.display_name = payload.get("display_name")
-        local.bio = payload.get("bio")
-        local.directory_opt_in = bool(payload.get("directory_opt_in"))
-        local.email = str(payload.get("email") or local.email)
-        local.avatar = payload.get("avatar")
-        local.is_paid = bool(payload.get("is_paid"))
+        _apply_user_sync_payload(local, payload)
     local.sync_id = event["entity_sync_id"]
     local.sync_version = max(1, _incoming_version(event))
 

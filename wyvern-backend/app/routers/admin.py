@@ -8,7 +8,6 @@ from app.config import get_settings
 from app.database import get_db
 from app.models import Channel, Message, Server, ServerMember, User
 from app.schemas.server import ServerOut
-from app.schemas.user import UserOut
 from app.services.admin_allowlist import admin_allowlist_service
 from app.services.release_flags import build_release_audit, build_release_status, promote_release_flags, resolve_release_channel
 from app.utils.dependencies import get_current_user
@@ -23,6 +22,20 @@ async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if not await admin_allowlist_service.is_admin(current_user.username, current_user.discriminator):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return current_user
+
+
+def _serialize_admin_user(user: User) -> dict:
+    return {
+        "id": str(user.id),
+        "username": user.username,
+        "discriminator": user.discriminator,
+        "display_name": user.display_name,
+        "bio": user.bio,
+        "directory_opt_in": user.directory_opt_in,
+        "avatar": user.avatar,
+        "is_paid": user.is_paid,
+        "created_at": user.created_at.isoformat() if hasattr(user.created_at, "isoformat") else user.created_at,
+    }
 
 
 @router.get("/overview")
@@ -52,7 +65,7 @@ async def admin_overview(
     server_rows = servers_result.all()
     server_map = {server.id: server for server, _ in server_rows}
 
-    users_payload = [UserOut.model_validate(user).model_dump(mode="json") for user in users]
+    users_payload = [_serialize_admin_user(user) for user in users]
     servers_payload = []
     for server, member_count in server_rows:
         payload = ServerOut.model_validate(server).model_dump(mode="json")
@@ -165,7 +178,7 @@ async def admin_overview(
                 "timestamp": user.created_at,
                 "title": f"New user registered: {user.display_name or user.username}",
                 "subtitle": f"{user.username}#{user.discriminator}",
-                "preview": user.email,
+                "preview": "Account created",
                 "meta": {"user_id": str(user.id)},
             }
         )

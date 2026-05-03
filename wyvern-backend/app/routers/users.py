@@ -11,6 +11,7 @@ from app.services.live_bridge import queue_realtime_event
 from app.services.presence import presence_service
 from app.services.realtime import broadcast_presence_update, broadcast_public_user_update
 from app.services.sync_bridge import bump_sync_version, enqueue_upsert_event
+from app.services.usernames import generate_discriminator, username_discriminator_taken
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
 
@@ -32,6 +33,17 @@ async def build_current_user_payload(current_user: User) -> dict:
     return payload
 
 
+async def apply_username_update(db: AsyncSession, current_user: User, username: str) -> None:
+    if await username_discriminator_taken(
+        db,
+        username,
+        current_user.discriminator,
+        exclude_user_id=current_user.id,
+    ):
+        current_user.discriminator = await generate_discriminator(db, username, exclude_user_id=current_user.id)
+    current_user.username = username
+
+
 @router.get("/me")
 async def me(current_user: User = Depends(get_current_user)) -> dict:
     return success_response(await build_current_user_payload(current_user))
@@ -48,7 +60,7 @@ async def update_me(
     if "avatar" in provided:
         current_user.avatar = payload.avatar
     if "username" in provided and payload.username is not None:
-        current_user.username = payload.username
+        await apply_username_update(db, current_user, payload.username)
     if "display_name" in provided:
         current_user.display_name = payload.display_name
     if "bio" in provided:

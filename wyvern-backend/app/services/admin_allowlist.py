@@ -1,87 +1,48 @@
-import asyncio
-import json
-from pathlib import Path
+import re
+from collections.abc import Callable
+
+from app.config import Settings, get_settings
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-ADMINS_FILE = PROJECT_ROOT / "admins.json"
+ALLOWLIST_SPLIT_RE = re.compile(r"[\s,]+")
 
 
 class AdminAllowlistService:
-    def __init__(self) -> None:
-        self._lock = asyncio.Lock()
-        self._cached_mtime: float | None = None
-        self._cached_usernames: set[str] = set()
+    def __init__(self, settings_provider: Callable[[], Settings] = get_settings) -> None:
+        self._settings_provider = settings_provider
 
     @staticmethod
-    def _normalize_username(value: str) -> str:
-        return value.strip().lower()
+    def _normalize_handle(value: str) -> str:
+        handle = value.strip()
+        if "#" not in handle:
+            return ""
+        username, discriminator = handle.rsplit("#", 1)
+        username = username.strip().lower()
+        discriminator = discriminator.strip()
+        if not username or not discriminator:
+            return ""
+        return f"{username}#{discriminator}"
 
-    @staticmethod
-    def _extract_usernames(payload: object) -> set[str]:
-        usernames: list[str] = []
-        if isinstance(payload, list):
-            usernames = [item for item in payload if isinstance(item, str)]
-        elif isinstance(payload, dict):
-            raw = payload.get("usernames")
-            if isinstance(raw, list):
-                usernames = [item for item in raw if isinstance(item, str)]
-
-        normalized = {
-            AdminAllowlistService._normalize_username(username)
-            for username in usernames
-            if username and AdminAllowlistService._normalize_username(username)
+    @classmethod
+    def parse_allowlist(cls, value: str | None) -> set[str]:
+        if not value:
+            return set()
+        return {
+            normalized
+            for normalized in (cls._normalize_handle(item) for item in ALLOWLIST_SPLIT_RE.split(value))
+            if normalized
         }
-        return normalized
-
-    async def _load_allowlist_from_disk(self) -> set[str]:
-        try:
-            content = await asyncio.to_thread(ADMINS_FILE.read_text, encoding="utf-8")
-        except FileNotFoundError:
-            return set()
-        except OSError:
-            return set()
-
-        try:
-            parsed = json.loads(content)
-        except json.JSONDecodeError:
-            return set()
-
-        return self._extract_usernames(parsed)
 
     async def get_allowlist(self) -> set[str]:
-        try:
-            stat = await asyncio.to_thread(ADMINS_FILE.stat)
-            mtime = stat.st_mtime
-        except FileNotFoundError:
-            self._cached_mtime = None
-            self._cached_usernames = set()
-            return set()
-        except OSError:
-            return set(self._cached_usernames)
-
-        if self._cached_mtime == mtime:
-            return set(self._cached_usernames)
-
-        async with self._lock:
-            # Re-check inside lock so parallel calls do not reload twice.
-            if self._cached_mtime == mtime:
-                return set(self._cached_usernames)
-
-            usernames = await self._load_allowlist_from_disk()
-            self._cached_mtime = mtime
-            self._cached_usernames = usernames
-            return set(usernames)
+        return self.parse_allowlist(self._settings_provider().admin_allowlist)
 
     async def is_admin(self, username: str | None, discriminator: str | None = None) -> bool:
         if not username or not discriminator:
             return False
         allowlist = await self.get_allowlist()
-        normalized_username = self._normalize_username(username)
-        normalized_discriminator = discriminator.strip()
-        if not normalized_discriminator:
+        if not allowlist:
             return False
-        return f"{normalized_username}#{normalized_discriminator}" in allowlist
+        return self._normalize_handle(f"{username}#{discriminator}") in allowlist
 
 
 admin_allowlist_service = AdminAllowlistService()

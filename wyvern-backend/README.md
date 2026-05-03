@@ -85,10 +85,11 @@ Copy `.env.example` to `.env` and set values.
 - `API_V1_PREFIX` default: `/api/v1`
 - `DATABASE_URL` PostgreSQL async URL
 - `REDIS_URL` Redis URL
-- `JWT_SECRET_KEY` required strong secret
+- `JWT_SECRET_KEY` required strong secret; startup fails if missing or shorter than 32 characters
 - `JWT_ALGORITHM` default: `HS256`
 - `ACCESS_TOKEN_EXPIRE_MINUTES` default: `15`
 - `REFRESH_TOKEN_EXPIRE_DAYS` default: `30`
+- `ADMIN_ALLOWLIST` comma- or newline-separated exact admin handles such as `axel#1234`
 - `CORS_ORIGINS` comma-separated origins
 - `MIRROR_TARGET_URL` optional upstream base URL used by `/mirror/...` proxy (example: `https://your-tunnel.trycloudflare.com`)
 - `LOCAL_MEDIA_DIR` local directory used to persist uploads (default: `media`)
@@ -101,21 +102,18 @@ Copy `.env.example` to `.env` and set values.
 - `RATE_LIMIT_MESSAGE_WINDOW_SECONDS` default: `1`
 - `RATE_LIMIT_UPLOAD_COUNT` default: `10`
 - `RATE_LIMIT_UPLOAD_WINDOW_SECONDS` default: `60`
+- `RATE_LIMIT_AUTH_COUNT` default: `10`
+- `RATE_LIMIT_AUTH_WINDOW_SECONDS` default: `60`
+- `RATE_LIMIT_WEBHOOK_COUNT` default: `30`
+- `RATE_LIMIT_WEBHOOK_WINDOW_SECONDS` default: `60`
 
 ## Admin Access Allowlist
 
-- Admin API access is restricted by `admins.json` in the project root.
-- File format:
-
-```json
-{
-  "usernames": ["your_username_here", "your_username_here#1234"]
-}
-```
-
-- Matching is case-insensitive.
-- Entries can be either plain `username` or full `username#discriminator`.
-- Update `admins.json` and refresh/retry the admin page.
+- Admin API access is restricted by the `ADMIN_ALLOWLIST` environment variable.
+- Use exact `username#1234` handles separated by commas or newlines.
+- Username matching is case-insensitive; discriminator matching is exact.
+- If `ADMIN_ALLOWLIST` is empty or malformed, admin access fails closed.
+- `admins.json` is not used as a runtime admin source.
 
 ## Local Run (Docker)
 

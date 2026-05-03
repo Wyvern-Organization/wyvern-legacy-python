@@ -9,21 +9,23 @@ from urllib.parse import urljoin
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
+from app.config import get_settings
 from app.database import get_db
-from app.models import Channel, ChannelType, DMParticipant, MemberRole, Message, Server, ServerMember, ServerWebhook, User, WebhookDeliveryLog
+from app.models import Channel, ChannelType, DMParticipant, MemberRole, Message, ServerMember, ServerWebhook, User, WebhookDeliveryLog
 from app.schemas.community import WebhookCreateOut, WebhookCreateRequest, WebhookDeliveryOut, WebhookMessageRequest, WebhookOut
 from app.schemas.message import MessageOut
 from app.services.access import ensure_channel_access, get_channel_or_404
 from app.services.community import generate_secret_token, hash_secret_token, record_server_activity
 from app.services.pubsub import publish_channel_event
+from app.services.rate_limiter import rate_limiter
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
 
 
 router = APIRouter(tags=["webhooks"])
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 def _can_manage_webhooks(role: MemberRole) -> bool:
@@ -57,6 +59,22 @@ def _serialize_webhook(webhook: ServerWebhook, request: Request | None = None, t
         webhook_url=_webhook_url(request, webhook.id, token) if request and token else None,
     )
     return payload.model_dump(mode="json")
+
+
+def _rotate_webhook_secret(webhook: ServerWebhook) -> str:
+    token = generate_secret_token()
+    webhook.token_hash = hash_secret_token(token)
+    webhook.updated_at = datetime.now(tz=UTC)
+    return token
+
+
+async def _throttle_webhook_invocation(webhook_id: str) -> None:
+    await rate_limiter.check(
+        key_prefix="webhooks",
+        actor_id=webhook_id,
+        limit=settings.rate_limit_webhook_count,
+        window_seconds=settings.rate_limit_webhook_window_seconds,
+    )
 
 
 async def _load_webhook_or_404(db: AsyncSession, webhook_id: str) -> ServerWebhook:
@@ -180,6 +198,42 @@ async def delete_webhook(
     return success_response({"deleted": True})
 
 
+@router.post("/webhooks/{webhook_id}/rotate")
+async def rotate_webhook_token(
+    webhook_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    webhook = await _load_webhook_or_404(db, webhook_id)
+    membership = await _server_membership(db, webhook.server_id, current_user.id)
+    if membership is None or not _can_manage_webhooks(membership.role):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    if not webhook.active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook is not active")
+
+    token = _rotate_webhook_secret(webhook)
+    await record_server_activity(
+        db,
+        server_id=webhook.server_id,
+        actor_user_id=current_user.id,
+        action="webhook.rotated",
+        target_type="webhook",
+        target_id=str(webhook.id),
+        metadata={"channel_id": webhook.channel_id, "name": webhook.name},
+    )
+    await db.commit()
+    await db.refresh(webhook)
+    webhook_url = _webhook_url(request, webhook.id, token)
+    return success_response(
+        WebhookCreateOut(
+            webhook=WebhookOut.model_validate(webhook).model_copy(update={"webhook_url": webhook_url}),
+            token=token,
+            webhook_url=webhook_url,
+        ).model_dump(mode="json")
+    )
+
+
 @router.get("/servers/{server_id}/webhooks/{webhook_id}/deliveries")
 async def list_webhook_deliveries(
     server_id: str,
@@ -214,6 +268,7 @@ async def invoke_webhook(
     payload: WebhookMessageRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
+    await _throttle_webhook_invocation(webhook_id)
     webhook = await _load_webhook_by_token(db, webhook_id, token)
     channel = await get_channel_or_404(db, webhook.channel_id)
     if channel.type != ChannelType.text:
