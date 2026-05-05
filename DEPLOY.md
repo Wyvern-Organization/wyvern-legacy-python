@@ -158,6 +158,7 @@ ASPC `.env` should include:
 
 ```env
 WYVERN_NODE_ID=aspc
+WYVERN_HOST_PORT=8009
 NODE_ROLE=main
 SYNC_ENABLED=true
 SYNC_PEER_API_URL=http://192.168.1.47:8000
@@ -170,6 +171,7 @@ Nubu `.env` should include:
 
 ```env
 WYVERN_NODE_ID=nubu
+WYVERN_HOST_PORT=8000
 NODE_ROLE=edge
 SYNC_ENABLED=true
 SYNC_PEER_API_URL=http://192.168.1.12:8009

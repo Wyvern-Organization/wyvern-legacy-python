@@ -82,6 +82,7 @@ Copy `.env.example` to `.env` and set values.
 - `APP_NAME` default: `Wyvern Backend`
 - `ENVIRONMENT` default: `development`
 - `DEBUG` default: `false`
+- `WYVERN_HOST_PORT` host port exposed by Docker Compose (ASPC: `8009`, nubu: `8000`)
 - `API_V1_PREFIX` default: `/api/v1`
 - `DATABASE_URL` PostgreSQL async URL
 - `POSTGRES_USER` and `POSTGRES_PASSWORD` are required by Docker Compose; do not rely on a default database password
