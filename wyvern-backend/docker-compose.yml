@@ -21,14 +21,14 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: wyvern
-      POSTGRES_USER: ${POSTGRES_USER:-wyvern}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wyvern_local_dev_only}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wyvern} -d wyvern"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?POSTGRES_USER is required} -d wyvern"]
       interval: 10s
       timeout: 5s
       retries: 5

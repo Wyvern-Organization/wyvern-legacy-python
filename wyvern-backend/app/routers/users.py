@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,7 @@ from app.services.sync_bridge import bump_sync_version, enqueue_upsert_event
 from app.services.usernames import generate_discriminator, username_discriminator_taken
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
+from app.utils.validation import validate_public_url, validate_username_handle
 
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -25,6 +26,18 @@ class UserUpdateRequest(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=64)
     bio: str | None = Field(default=None, max_length=280)
     directory_opt_in: bool | None = None
+
+    @field_validator("avatar")
+    @classmethod
+    def validate_avatar(cls, value: str | None) -> str | None:
+        return validate_public_url(value, field_name="avatar")
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return validate_username_handle(value)
 
 
 async def build_current_user_payload(current_user: User) -> dict:

@@ -84,6 +84,7 @@ Copy `.env.example` to `.env` and set values.
 - `DEBUG` default: `false`
 - `API_V1_PREFIX` default: `/api/v1`
 - `DATABASE_URL` PostgreSQL async URL
+- `POSTGRES_USER` and `POSTGRES_PASSWORD` are required by Docker Compose; do not rely on a default database password
 - `REDIS_URL` Redis URL
 - `JWT_SECRET_KEY` required strong secret; startup fails if missing or shorter than 32 characters
 - `JWT_ALGORITHM` default: `HS256`
@@ -140,7 +141,7 @@ On ASPC, the one-command launcher lives at `../scripts/start-aspc.ps1` and start
 ## Landing + Mirror Proxy
 
 - `GET /landing` serves `../landing/index.html` if present.
-- `/mirror/{path}` forwards HTTP requests/responses to `MIRROR_TARGET_URL`.
+- `/mirror/{path}` forwards read-only `GET`/`HEAD` requests to `MIRROR_TARGET_URL`.
 - Example: with `MIRROR_TARGET_URL=https://abc.trycloudflare.com`, a call to `/mirror/api/v1/health` proxies to `https://abc.trycloudflare.com/api/v1/health`.
 
 ## WebSocket

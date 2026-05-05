@@ -1,8 +1,9 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import MemberRole
+from app.utils.validation import validate_public_url
 
 
 class ServerCreate(BaseModel):
@@ -11,12 +12,22 @@ class ServerCreate(BaseModel):
     icon: str | None = None
     directory_opt_in: bool = False
 
+    @field_validator("icon")
+    @classmethod
+    def validate_icon(cls, value: str | None) -> str | None:
+        return validate_public_url(value, field_name="icon")
+
 
 class ServerUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=120)
     description: str | None = Field(default=None, max_length=512)
     icon: str | None = None
     directory_opt_in: bool | None = None
+
+    @field_validator("icon")
+    @classmethod
+    def validate_icon(cls, value: str | None) -> str | None:
+        return validate_public_url(value, field_name="icon")
 
 
 class ServerOut(BaseModel):

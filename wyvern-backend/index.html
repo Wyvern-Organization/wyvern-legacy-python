@@ -4838,8 +4838,9 @@ function avatarEl(name, cls = '', size = 38, avatarUrl = null) {
   d.style.fontWeight = '700';
   d.style.flexShrink = '0';
 
-  if (avatarUrl) {
-    const img = el('img', { class: 'avatar-img', src: avatarUrl, alt: name || 'avatar' });
+  const safeAvatarUrl = normalizeDisplayUrl(avatarUrl);
+  if (safeAvatarUrl) {
+    const img = el('img', { class: 'avatar-img', src: safeAvatarUrl, alt: name || 'avatar' });
     img.addEventListener('error', () => {
       img.remove();
       d.textContent = initials(name || '?');
@@ -4907,6 +4908,16 @@ function normalizeNavigableUrl(raw = '') {
   }
 }
 
+function normalizeDisplayUrl(raw = '') {
+  const candidate = String(raw || '').trim();
+  if (!candidate || /[\u0000-\u001f\u007f\\]/.test(candidate)) return null;
+  if (candidate.startsWith('/media/')) {
+    if (candidate.includes('/../') || candidate.endsWith('/..') || candidate.startsWith('/media/../')) return null;
+    return candidate;
+  }
+  return normalizeNavigableUrl(candidate);
+}
+
 function extractHttpLinks(text = '') {
   const urls = [];
   const seen = new Set();
@@ -4970,18 +4981,31 @@ function renderContent(text = '') {
 function toAttachmentObj(att) {
   if (!att) return null;
   if (typeof att === 'string') {
-    const parts = att.split('/');
-    return { url: att, filename: decodeURIComponent(parts[parts.length - 1] || 'Attachment') };
+    const url = normalizeDisplayUrl(att);
+    if (!url) return null;
+    return { url, filename: attachmentFilenameFromUrl(url) };
   }
   if (typeof att === 'object' && att.url) {
-    return { url: att.url, filename: att.filename || decodeURIComponent(att.url.split('/').pop() || 'Attachment') };
+    const url = normalizeDisplayUrl(att.url);
+    if (!url) return null;
+    return { url, filename: att.filename || attachmentFilenameFromUrl(url) };
   }
   return null;
 }
 
+function attachmentFilenameFromUrl(url = '') {
+  try {
+    const path = url.startsWith('/media/') ? url : new URL(url, location.origin).pathname;
+    const parts = path.split('/');
+    return decodeURIComponent(parts[parts.length - 1] || 'Attachment');
+  } catch {
+    return 'Attachment';
+  }
+}
+
 function mediaKind(url = '') {
   const lower = url.toLowerCase().split('?')[0];
-  if (/\.(png|jpe?g|gif|webp|bmp|svg|avif)$/.test(lower)) return 'image';
+  if (/\.(png|jpe?g|gif|webp|bmp|avif)$/.test(lower)) return 'image';
   if (/\.(mp4|webm|mov|m4v|mkv)$/.test(lower)) return 'video';
   if (/\.(mp3|wav|ogg|m4a|flac)$/.test(lower)) return 'audio';
   return 'file';

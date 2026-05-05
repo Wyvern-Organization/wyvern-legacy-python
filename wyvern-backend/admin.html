@@ -801,6 +801,21 @@
       return access ? { Authorization: `Bearer ${access}` } : {};
     }
 
+    function normalizeAdminImageUrl(raw = '') {
+      const candidate = String(raw || '').trim();
+      if (!candidate || /[\u0000-\u001f\u007f\\]/.test(candidate)) return null;
+      if (candidate.startsWith('/media/')) {
+        if (candidate.includes('/../') || candidate.endsWith('/..') || candidate.startsWith('/media/../')) return null;
+        return candidate;
+      }
+      try {
+        const parsed = new URL(candidate, location.origin);
+        return ['http:', 'https:'].includes(parsed.protocol) ? parsed.toString() : null;
+      } catch {
+        return null;
+      }
+    }
+
     async function req(path, options = {}) {
       const res = await fetch(`${API_PREFIX}${path}`, {
         method: options.method || 'GET',
@@ -827,9 +842,10 @@
       const wrap = document.createElement('div');
       wrap.className = 'avatar';
 
-      if (imgUrl) {
+      const safeImgUrl = normalizeAdminImageUrl(imgUrl);
+      if (safeImgUrl) {
         const img = document.createElement('img');
-        img.src = imgUrl;
+        img.src = safeImgUrl;
         img.alt = name;
         img.addEventListener('error', () => {
           wrap.innerHTML = '';
@@ -871,7 +887,7 @@
 
         const sub = document.createElement('div');
         sub.className = 'sub';
-        sub.textContent = `${user.username}#${user.discriminator} • ${user.email}${user.bio ? ` • ${user.bio}` : ''}`;
+        sub.textContent = `${user.username}#${user.discriminator}${user.bio ? ` • ${user.bio}` : ''}`;
         content.append(name, sub);
         row.appendChild(content);
 
@@ -901,9 +917,10 @@
 
         const icon = document.createElement('div');
         icon.className = 'icon';
-        if (server.icon) {
+        const safeIconUrl = normalizeAdminImageUrl(server.icon);
+        if (safeIconUrl) {
           const img = document.createElement('img');
-          img.src = server.icon;
+          img.src = safeIconUrl;
           img.alt = server.name || 'Server';
           img.addEventListener('error', () => {
             icon.innerHTML = '';

@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.utils.validation import MAX_ATTACHMENTS, validate_public_url, validate_public_url_list
 
 
 class WebhookCreateRequest(BaseModel):
@@ -11,10 +13,20 @@ class WebhookCreateRequest(BaseModel):
 
 class WebhookMessageRequest(BaseModel):
     content: str = Field(default="", max_length=4000)
-    attachments: list[str] = Field(default_factory=list)
+    attachments: list[str] = Field(default_factory=list, max_length=MAX_ATTACHMENTS)
     username: str | None = Field(default=None, max_length=120)
     avatar_url: str | None = Field(default=None, max_length=1024)
     reply_to_id: str | None = None
+
+    @field_validator("attachments")
+    @classmethod
+    def validate_attachments(cls, value: list[str]) -> list[str]:
+        return validate_public_url_list(value)
+
+    @field_validator("avatar_url")
+    @classmethod
+    def validate_avatar_url(cls, value: str | None) -> str | None:
+        return validate_public_url(value, field_name="avatar_url")
 
 
 class WebhookOut(BaseModel):

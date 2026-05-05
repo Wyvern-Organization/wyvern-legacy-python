@@ -4,10 +4,15 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 from starlette.datastructures import Headers, UploadFile
 
 from app.models import User
 from app.routers import admin, users, webhooks
+from app.schemas.auth import RegisterRequest
+from app.schemas.community import WebhookMessageRequest
+from app.schemas.message import MessageCreate
+from app.schemas.server import ServerCreate
 from app.services import rate_limiter as rate_limiter_module
 from app.services.admin_allowlist import AdminAllowlistService
 from app.services.community import hash_secret_token
@@ -44,6 +49,28 @@ def test_access_token_subject(user_id: int) -> None:
     token = create_access_token(user_id)
     payload = decode_token(token)
     assert payload["sub"] == str(user_id)
+
+
+def test_username_rejects_handle_separator_and_controls() -> None:
+    with pytest.raises(ValidationError):
+        RegisterRequest(username="admin#0001", email="admin@example.com", password="correct horse battery")
+
+    with pytest.raises(ValidationError):
+        users.UserUpdateRequest(username="bad\nname")
+
+
+def test_public_url_fields_reject_active_or_local_schemes() -> None:
+    with pytest.raises(ValidationError):
+        MessageCreate(content="x", attachments=["javascript:alert(1).png"])
+
+    with pytest.raises(ValidationError):
+        WebhookMessageRequest(content="x", avatar_url="data:image/svg+xml,<svg></svg>")
+
+    with pytest.raises(ValidationError):
+        ServerCreate(name="Test Server", icon="file:///etc/passwd")
+
+    payload = MessageCreate(content="x", attachments=["/media/user_1/avatar.png", "https://example.com/file.pdf"])
+    assert payload.attachments == ["/media/user_1/avatar.png", "https://example.com/file.pdf"]
 
 
 @pytest.mark.asyncio

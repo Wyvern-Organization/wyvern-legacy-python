@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -102,6 +103,9 @@ class Settings(BaseSettings):
         normalized = value.strip()
         if not normalized:
             return None
+        parsed = urlsplit(normalized)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("MIRROR_TARGET_URL must be an http(s) URL")
         return normalized.rstrip("/")
 
     @field_validator("sync_peer_api_url", mode="before")

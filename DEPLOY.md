@@ -15,7 +15,7 @@ This document covers deploying Wyvern to both backend nodes, updating the Netlif
   - Tunnel: Cloudflared quick tunnel
 - Nubu fallback node:
   - SSH: `ssh axel@192.168.1.47`
-  - Password: `1145`
+  - Authentication: use the configured SSH key or local credential vault entry. Do not store the password in Git.
   - Backend path: `/home/axel/wyvern-server/wyvern-backend`
   - App port: `8000`
   - Local LAN health: `http://192.168.1.47:8000/health`
@@ -146,7 +146,7 @@ The nubu startup script starts Cloudflared first, then Code Tunnels as fallback.
 If Docker requires sudo:
 
 ```bash
-echo 1145 | sudo -S docker restart wyvern-app
+sudo docker restart wyvern-app
 curl --max-time 15 -fsS http://127.0.0.1:8000/health
 ```
 
@@ -189,7 +189,7 @@ docker exec wyvern-postgres psql -U postgres -d wyvern -t -A -c "select count(*)
 Nubu queue check:
 
 ```bash
-echo 1145 | sudo -S docker exec wyvern-postgres psql -U wyvern -d wyvern -t -A -c "select count(*) filter (where delivered_at is null and dead_letter is false), count(*) filter (where dead_letter is true) from replication_outbox;"
+sudo docker exec wyvern-postgres psql -U wyvern -d wyvern -t -A -c "select count(*) filter (where delivered_at is null and dead_letter is false), count(*) filter (where dead_letter is true) from replication_outbox;"
 ```
 
 ## Netlify Landing Deploy

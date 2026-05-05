@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+from app.utils.validation import validate_username_handle
 
 
 class RegisterRequest(BaseModel):
@@ -8,6 +10,11 @@ class RegisterRequest(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=64)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, value: str) -> str:
+        return validate_username_handle(value)
 
 
 class LoginRequest(BaseModel):

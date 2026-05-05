@@ -344,9 +344,9 @@ def _get_proxy_response_headers(response: httpx.Response, base_url: str, current
     return headers
 
 
-@app.api_route("/mirror", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"], include_in_schema=False)
-@app.api_route("/mirror/", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"], include_in_schema=False)
-@app.api_route("/mirror/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"], include_in_schema=False)
+@app.api_route("/mirror", methods=["GET", "OPTIONS", "HEAD"], include_in_schema=False)
+@app.api_route("/mirror/", methods=["GET", "OPTIONS", "HEAD"], include_in_schema=False)
+@app.api_route("/mirror/{path:path}", methods=["GET", "OPTIONS", "HEAD"], include_in_schema=False)
 async def mirror_request(request: Request, path: str = "") -> Response:
     if not settings.mirror_target_url:
         return JSONResponse(

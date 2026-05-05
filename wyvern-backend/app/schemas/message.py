@@ -1,13 +1,20 @@
 from datetime import datetime
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.utils.validation import MAX_ATTACHMENTS, validate_public_url_list
 
 
 class MessageCreate(BaseModel):
     content: str = Field(default="", max_length=4000)
-    attachments: list[str] = Field(default_factory=list)
+    attachments: list[str] = Field(default_factory=list, max_length=MAX_ATTACHMENTS)
     reply_to_id: str | None = None
+
+    @field_validator("attachments")
+    @classmethod
+    def validate_attachments(cls, value: list[str]) -> list[str]:
+        return validate_public_url_list(value)
 
 
 class MessageUpdate(BaseModel):

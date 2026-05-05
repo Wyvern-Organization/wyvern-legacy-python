@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,9 +52,22 @@ async def _throttle_auth(actor_key: str, key_prefix: str) -> None:
     )
 
 
+def _client_rate_key(request: Request) -> str:
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip:
+        return f"ip:{cf_ip.strip()}"
+    client_host = request.client.host if request.client else "unknown"
+    return f"ip:{client_host}"
+
+
+async def _throttle_auth_request(request: Request, actor_key: str, key_prefix: str) -> None:
+    await _throttle_auth(actor_key, key_prefix)
+    await _throttle_auth(_client_rate_key(request), f"{key_prefix}.client")
+
+
 @router.post("/register")
-async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db)) -> dict:
-    await _throttle_auth(payload.email.lower(), "auth.register")
+async def register(payload: RegisterRequest, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
+    await _throttle_auth_request(request, payload.email.lower(), "auth.register")
     existing = await db.execute(select(User).where(func.lower(User.email) == payload.email.lower()))
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already in use")
@@ -95,8 +108,8 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
 
 
 @router.post("/login")
-async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> dict:
-    await _throttle_auth(payload.email.lower(), "auth.login")
+async def login(payload: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
+    await _throttle_auth_request(request, payload.email.lower(), "auth.login")
     result = await db.execute(select(User).where(func.lower(User.email) == payload.email.lower()))
     user = result.scalar_one_or_none()
 
@@ -123,8 +136,8 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> di
 
 
 @router.post("/refresh")
-async def refresh_tokens(payload: RefreshRequest, db: AsyncSession = Depends(get_db)) -> dict:
-    await _throttle_auth(hash_token(payload.refresh_token), "auth.refresh")
+async def refresh_tokens(payload: RefreshRequest, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
+    await _throttle_auth_request(request, hash_token(payload.refresh_token), "auth.refresh")
     try:
         token_payload = decode_token(payload.refresh_token)
     except TokenError as exc:
