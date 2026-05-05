@@ -15,6 +15,7 @@ This document covers deploying Wyvern to both backend nodes, updating the Netlif
   - Tunnel: Cloudflared quick tunnel
 - Nubu fallback node:
   - SSH: `ssh axel@192.168.1.47`
+  - Password: `1145`
   - Backend path: `/home/axel/wyvern-server/wyvern-backend`
   - App port: `8000`
   - Local LAN health: `http://192.168.1.47:8000/health`
@@ -194,24 +195,6 @@ echo 1145 | sudo -S docker exec wyvern-postgres psql -U wyvern -d wyvern -t -A -
 ## Netlify Landing Deploy
 
 The landing page is a static site in `landing/`. Netlify project state lives in `landing/.netlify/` locally and must not be committed.
-
-If any tunnel URL changes, update `landing/index.html` before deploying Netlify:
-
-```javascript
-const WYVERN_NUBU_CLOUDFLARE_URL = "https://new-nubu-cloudflared-url.trycloudflare.com";
-const WYVERN_NUBU_FALLBACK_URL = "https://new-nubu-code-tunnel-url.devtunnels.ms";
-const WYVERN_ASPC_URL = "https://new-aspc-cloudflared-url.trycloudflare.com";
-```
-
-Then commit and push the landing-page URL change:
-
-```powershell
-git add landing/index.html DEPLOY.md
-git commit -m "Update Wyvern landing URLs"
-git push wyvern-org main
-```
-
-After the push, deploy Netlify production so `https://wyvern0.netlify.app/` uses the new route list:
 
 Install and authenticate the Netlify CLI if needed:
 

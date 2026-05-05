@@ -1,0 +1,403 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{verbatim}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!50!black,
+    citecolor=blue!50!black,
+    urlcolor=blue!50!black
+}
+
+\title{Fourier Transform Networks:\\
+Boundary-Aware Spectral Sequence Modeling Without Attention}
+\author{Wyvern AI Research}
+\date{May 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Transformers dominate modern sequence modeling, but their quadratic attention cost remains a persistent obstacle for long-context efficiency. We study the Fourier Transform Network (FTN), an attention-free causal language model that replaces pairwise attention with dual-branch spectral mixing. FTN combines a local causal convolution branch with a global causal FFT convolution branch; our main architectural variant, \texttt{v2\_boundary}, further adds branch-specific projections, learned frequency reweighting, and a boundary-aware residual gate on the global path. On TinyStories, we report three main findings. First, additive branch fusion performs better than more expressive gated and concatenative fusion schemes in our setting, suggesting that branch formation may matter more than fusion complexity. Second, a small \texttt{v2\_boundary} FTN substantially improves over earlier FTN variants and achieves lower validation loss than a matched small scratch GPT-2 baseline. Third, a larger non-matched FTN scaling run improved substantially with additional data and optimization budget, with an 82.4M-parameter FTN reaching a final validation loss of 0.8112. At the same time, qualitative generation remains noticeably weaker than Transformer baselines, indicating that strong next-token loss does not yet translate into equally strong free-form coherence. Taken together, these results position FTN as a credible attention-free sequence modeling direction while motivating further work on representation analysis and generative behavior.
+\end{abstract}
+
+\section{Introduction}
+The Transformer has become the standard architecture for language and sequence modeling because attention provides a flexible mechanism for long-range interaction. Its computational cost, however, scales quadratically with sequence length. This has motivated sustained interest in architectures that preserve strong sequence modeling performance while avoiding explicit attention matrices.
+
+This paper studies the Fourier Transform Network (FTN), a causal sequence model built around spectral mixing rather than attention. FTN uses a dual-branch block consisting of a local branch for short-range structure and a global branch for sequence-wide interaction through causal FFT convolution. Our aim is not merely to introduce another efficient sequence block, but to test whether an attention-free spectral architecture can learn effectively on real text, whether it improves under architectural refinement, and whether it can benefit from additional data and optimization budget.
+
+The resulting picture is neither purely positive nor purely negative. Early FTN variants were weak and often displayed strong low-frequency bias. However, the \texttt{v2\_boundary} modification materially improved optimization and predictive performance. In the clearest controlled comparison, the small \texttt{v2\_boundary} model achieved lower validation loss than a matched small scratch GPT-2 baseline. A larger FTN trained with a substantially longer schedule improved further and reached a final validation loss of 0.8112, though this larger result is best interpreted as a non-matched scaling demonstration rather than a direct baseline comparison. At the same time, open-ended generation tests show that FTN remains noticeably weaker than Transformer baselines in free-form coherence. The present evidence therefore supports FTN as a meaningful research direction, but not yet as a drop-in replacement for Transformer language models.
+
+This scope makes FTN well suited to a first foundation paper in a broader research program. Rather than claiming that FTN has already surpassed Transformers, we focus on four narrower findings:
+\begin{enumerate}[leftmargin=1.5em]
+    \item FTN can be trained as a causal language model with global receptive fields and no attention.
+    \item Boundary-aware global mixing is a major architectural improvement over earlier FTN variants.
+    \item Branch-internal design appears to matter more than fusion complexity.
+    \item Strong next-token loss does not automatically imply equally strong open-ended generative coherence.
+\end{enumerate}
+
+\paragraph{Contributions.}
+This paper makes the following contributions:
+\begin{itemize}[leftmargin=1.5em]
+    \item We introduce and evaluate FTN, an attention-free dual-branch spectral language model based on causal FFT convolution.
+    \item We present the \texttt{v2\_boundary} FTN variant, which adds branch-specific projections, learned global frequency gains, and a position-dependent residual gate for the global branch.
+    \item We show that additive branch fusion outperforms more expressive fusion schemes in our setting, yielding an unexpected but robust design lesson.
+    \item We show that a small \texttt{v2\_boundary} FTN achieves lower validation loss than a matched small scratch GPT-2 baseline, and that a larger FTN run can improve substantially when paired with increased data and optimization budget.
+    \item We document a clear mismatch between strong predictive loss and weak open-ended coherence, identifying a concrete limitation and motivating subsequent mechanistic analysis.
+\end{itemize}
+
+\section{Related Framing}
+This work is motivated by the same broad problem that underlies efficient Transformer and attention-alternative architectures: how to preserve long-range sequence modeling ability while reducing the cost of explicit pairwise attention \cite{vaswani2017attention,katharopoulos2020transformers,choromanski2021performer}. Related alternatives have included Fourier token mixing \cite{leethorp2022fnet}, state-space sequence models \cite{gu2021ssm}, and long convolutional architectures \cite{poli2023hyena}. FTN explores one particular answer to that problem through direct causal sequence mixing in the spectral domain together with a local branch for short-range structure.
+
+The goal of this first paper is narrower than a general claim of superiority over Transformers. Instead, we ask whether a causal spectral architecture can serve as a credible language model, whether architectural changes of the kind implemented in \texttt{v2\_boundary} materially improve that model, and what kinds of behavior remain missing even when validation loss becomes strong.
+
+\section{Model}
+\subsection{Overall architecture}
+FTN is a causal language model with standard token embeddings, positional embeddings, a stack of FTN blocks, a final normalization layer, and a tied output projection. The core novelty is the FTN block itself.
+
+Each FTN block processes a hidden sequence through two parallel branches:
+\begin{itemize}[leftmargin=1.5em]
+    \item a \textbf{local branch}, designed to capture short-range dependencies through causal convolution with a limited receptive field;
+    \item a \textbf{global branch}, designed to capture sequence-wide structure through causal FFT convolution.
+\end{itemize}
+
+Both branches are fused, added back through a residual connection, and followed by an MLP sublayer.
+
+\subsection{Code-level configuration}
+The implementation used in this paper is defined directly in \texttt{modeling\_ftn.py}. The FTN configuration object contains
+\begin{equation}
+    (\texttt{vocab\_size}, \texttt{max\_position\_embeddings}, d, N, d_{\mathrm{ff}}, p,
+    K_{\ell}, K_g, \texttt{fusion\_mode}, \texttt{variant}),
+\end{equation}
+along with the boundary-specific parameters \texttt{boundary\_edge\_width}, \texttt{boundary\_edge\_mix}, and \texttt{boundary\_center\_mix}. In the code, $d$ corresponds to \texttt{d\_model}, $N$ to \texttt{num\_layers}, $d_{\mathrm{ff}}$ to \texttt{ffn\_dim}, $K_{\ell}$ to the local window size, and $K_g$ to the global kernel size.
+
+At the top level, the model computes
+\begin{equation}
+    h^{(0)} = \mathrm{Dropout}\left(E_{\mathrm{tok}}(x) + E_{\mathrm{pos}}(0{:}L-1)\right),
+\end{equation}
+then applies $N$ FTN blocks, followed by
+\begin{equation}
+    \mathrm{logits} = W_{\mathrm{lm}}\, \mathrm{LN}_{\mathrm{final}}(h^{(N)}),
+\end{equation}
+with tied token embedding weights when \texttt{tie\_word\_embeddings=True}. Training uses standard next-token cross-entropy on shifted logits.
+
+\subsection{Causal FFT convolution}
+The FTN global branch replaces attention with a causal convolution implemented in the frequency domain. In code, the tensor is transposed from shape $[B,L,d]$ to $[B,d,L]$, padded implicitly by choosing
+\begin{equation}
+    n_{\mathrm{fft}} = L + K - 1,
+\end{equation}
+and transformed channel-wise with a real FFT. Given an input sequence $x \in \mathbb{R}^{B \times L \times d}$ and a learned depthwise kernel $w \in \mathbb{R}^{d \times K}$, FTN computes
+\begin{equation}
+    \widehat{x} = \mathrm{rFFT}(x), \qquad \widehat{w} = \mathrm{rFFT}(w),
+\end{equation}
+\begin{equation}
+    \widehat{y} = \widehat{x} \odot \widehat{w},
+\end{equation}
+and then
+\begin{equation}
+    y = \mathrm{iRFFT}(\widehat{y})_{[:, :, :L]},
+\end{equation}
+with an optional channel-wise bias added afterward. The truncation to the first $L$ positions is exactly the code path that enforces causal linear convolution rather than circular wraparound. The implementation also includes a direct-reference convolution path used for numerical preflight checks:
+\begin{equation}
+    y_{\mathrm{ref}} = \mathrm{conv1d}\left(\mathrm{pad}(x, K-1), \mathrm{flip}(w)\right),
+\end{equation}
+with grouped convolution over channels. This gives global receptive fields with $O(L \log L)$ spectral mixing instead of $O(L^2)$ attention.
+
+When \texttt{use\_frequency\_gain=True}, the code multiplies by a learned positive gain tensor
+\begin{equation}
+    G = \exp(\Theta) \in \mathbb{R}_{>0}^{d \times F},
+\end{equation}
+so that
+\begin{equation}
+    \widehat{y} = \widehat{x} \odot \widehat{w} \odot G.
+\end{equation}
+This is the exact mechanism used by the \texttt{v2\_boundary} global branch to reshape the spectral profile beyond the kernel alone.
+
+\subsection{From \texttt{v1\_add} to \texttt{v2\_boundary}}
+The early FTN variant, \texttt{v1\_add}, used the same broad dual-branch idea but proved weak in both loss and qualitative generation. Diagnostics suggested that the global branch was often oversmoothed, with upper layers concentrating almost all energy in low-frequency bands.
+
+The \texttt{v2\_boundary} variant introduces three key changes:
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Branch-specific input and output projections.} Both local and global branches receive learned pointwise projections before and after convolution, allowing each branch to shape its own representational subspace.
+    \item \textbf{Learned global frequency gains.} The global FFT branch applies a learned positive gain over frequency bins, allowing the model to upweight or downweight different spectral regions rather than inheriting a fixed spectral bias from the kernel alone.
+    \item \textbf{Boundary-aware residual gating.} The global branch mixes its FFT output with a learned residual projection using a position-dependent gate table. Edge positions are initialized to trust the residual path more than the spectral path, while central positions are initialized to trust the spectral path more strongly.
+\end{enumerate}
+
+The actual FTN block implemented in code is close to the following equations. Let $h$ denote the layer-normalized input:
+\begin{equation}
+    h = \mathrm{LN}_{\mathrm{in}}(x).
+\end{equation}
+The local branch is
+\begin{equation}
+    h_{\ell}^{\mathrm{in}} = W_{\ell}^{\mathrm{in}} h,
+\end{equation}
+\begin{equation}
+    h_{\ell}^{\mathrm{pre}} = W_{\ell}^{\mathrm{out}} \, \mathrm{CausalFFTConv}_{K_{\ell}}(h_{\ell}^{\mathrm{in}}),
+\end{equation}
+\begin{equation}
+    h_{\ell} = \mathrm{LN}_{\ell}(h_{\ell}^{\mathrm{pre}}).
+\end{equation}
+The global branch is
+\begin{equation}
+    h_{g}^{\mathrm{in}} = W_{g}^{\mathrm{in}} h,
+\end{equation}
+\begin{equation}
+    h_{g}^{\mathrm{fft}} = W_{g}^{\mathrm{out}} \, \mathrm{CausalFFTConv}_{K_g}^{\mathrm{gain}}(h_{g}^{\mathrm{in}}).
+\end{equation}
+
+For \texttt{v2\_boundary}, the code then slices a learned table of position logits,
+\begin{equation}
+    A \in \mathbb{R}^{L_{\max} \times d},
+\end{equation}
+applies a sigmoid gate,
+\begin{equation}
+    \Gamma_{1:L} = \sigma(A_{1:L}) \in (0,1)^{L \times d},
+\end{equation}
+and mixes FFT and residual paths elementwise:
+\begin{equation}
+    h_{g}^{\mathrm{pre}} = \Gamma \odot h_{g}^{\mathrm{fft}} + (1-\Gamma)\odot W_{g}^{\mathrm{res}} h.
+\end{equation}
+The normalized global branch is
+\begin{equation}
+    h_g = \mathrm{LN}_{g}(h_{g}^{\mathrm{pre}}).
+\end{equation}
+
+The boundary gate is initialized asymmetrically by position. If $w_e$ is the edge width, then positions in the first and last $w_e$ tokens are initialized toward \texttt{boundary\_edge\_mix}, while the center positions are initialized toward \texttt{boundary\_center\_mix}. In the implementation used here, those defaults are 0.2 at the edges and 0.8 in the middle. This was specifically introduced to reduce brittle edge behavior and avoid treating causal sequence modeling as if it were naturally periodic.
+
+\subsection{Fusion}
+We evaluated three fusion schemes for combining the local and global branches:
+\begin{itemize}[leftmargin=1.5em]
+    \item additive fusion,
+    \item concatenation followed by projection,
+    \item learned gated fusion.
+\end{itemize}
+
+Unexpectedly, additive fusion proved most effective in our setting. This result suggests that once the branches themselves are well-formed, more complex routing may not be the main bottleneck. We return to this observation in Section~\ref{sec:discussion}.
+
+More precisely, the fusion module in code accepts one of three modes:
+\begin{align}
+    \texttt{add}: \quad & h_f = h_{\ell} + h_g, \\
+    \texttt{concat}: \quad & h_f = W_c [h_{\ell}; h_g], \\
+    \texttt{gate}: \quad & z = \sigma\!\left(W_z [h_{\ell}; h_g] + b_z\right), \qquad
+    h_f = z \odot h_{\ell} + (1-z)\odot h_g.
+\end{align}
+In all cases, the result is passed through an output projection. The block then applies residual addition and a feed-forward network:
+\begin{equation}
+    x' = x + \mathrm{Dropout}(W_o h_f),
+\end{equation}
+\begin{equation}
+    \mathrm{FTNBlock}(x) = x' + \mathrm{MLP}(\mathrm{LN}_{\mathrm{mlp}}(x')).
+\end{equation}
+
+\subsection{Implementation-faithful block summary}
+To make the connection to the actual model code explicit, one FTN block in \texttt{modeling\_ftn.py} is structurally:
+\begin{verbatim}
+hidden = input_norm(x)
+local_hidden = local_in_proj(hidden)
+local_branch = local_norm(local_out_proj(local_conv(local_hidden)))
+global_hidden = global_in_proj(hidden)
+global_fft_out = global_out_proj(global_conv(global_hidden))
+gate = sigmoid(boundary_gate_table[:seq_len])
+global_branch = global_norm(gate * global_fft_out
+                            + (1 - gate) * global_residual_proj(hidden))
+fused = fusion(local_branch, global_branch)
+x = x + residual_dropout(fused)
+x = x + mlp(mlp_norm(x))
+\end{verbatim}
+This is not merely an implementation detail; it defines the actual object of study in this paper. In particular, the learned frequency gains, boundary gate table, and residual-mixing path are all present in the deployed code and in the published checkpoints.
+
+\section{Experimental Setup}
+\subsection{Data and tokenization}
+We trained and evaluated on TinyStories using GPT-2 tokenization and packed causal blocks of length 256. The core small-scale comparison used a fixed split of the first 1000 training stories and first 200 validation stories. The largest FTN run used the first 2000 training stories and first 400 validation stories, together with a longer training schedule. This larger run is therefore best interpreted as a scaling demonstration rather than a perfectly matched baseline comparison.
+
+\subsection{Model variants}
+We focus on the following models:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{FTN \texttt{v1\_add}}: the earlier additive fusion baseline;
+    \item \textbf{FTN \texttt{v2\_boundary} small}: 17.44M parameters;
+    \item \textbf{FTN \texttt{v2\_boundary} large40m}: 50.41M parameters;
+    \item \textbf{FTN \texttt{v2\_boundary} xlarge80m}: 82.41M parameters;
+    \item \textbf{GPT-2 scratch small}: 16.09M parameters.
+\end{itemize}
+
+The small matched comparison between FTN and GPT-2 is the fairest baseline result in this paper. The larger FTN runs are reported primarily to establish scaling behavior and diagnose where scaling helps or fails.
+
+\subsection{Concrete FTN settings}
+The main FTN configurations used in this paper correspond directly to the code-level settings:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{small}: $d=256$, $N=4$, $d_{\mathrm{ff}}=1024$, $K_{\ell}=32$, $K_g=256$;
+    \item \textbf{large40m}: $d=512$, $N=6$, $d_{\mathrm{ff}}=2048$, $K_{\ell}=32$, $K_g=256$;
+    \item \textbf{xlarge80m}: $d=640$, $N=8$, $d_{\mathrm{ff}}=2560$, $K_{\ell}=32$, $K_g=256$.
+\end{itemize}
+All FTN models use the same causal language-model objective, tied token embeddings, dropout-based regularization, and the \texttt{v2\_boundary} block definition unless otherwise noted.
+
+\subsection{Training setup}
+All main experiments used the same basic training loop implemented in \texttt{train.py}. Models were trained with AdamW, weight decay 0.01, gradient clipping at 1.0, and seed 42. The code does not implement mixed-precision training or autocasting, so all reported experiments were run in standard float32. All main runs reported in this paper executed on CPU; the training logs record \texttt{device=cpu} for the small, large40m, and xlarge80m experiments.
+
+The small matched FTN and GPT-2 scratch runs used the \texttt{small} preset with batch size 4, gradient accumulation 4, learning rate $3\times 10^{-4}$, and 10 epochs on \texttt{train[:1000]} / \texttt{validation[:200]}. The \texttt{large40m} run used batch size 2, gradient accumulation 8, learning rate $2\times 10^{-4}$, and 10 epochs on the same data split. The \texttt{xlarge80m} scaling run used batch size 2, gradient accumulation 8, learning rate $2\times 10^{-4}$, and 14 epochs on the larger \texttt{train[:2000]} / \texttt{validation[:400]} split. Early stopping support exists in the code with patience 2, although the main FTN runs discussed here completed their scheduled epochs.
+
+\subsection{Diagnostics}
+In addition to validation loss and perplexity, we tracked:
+\begin{itemize}[leftmargin=1.5em]
+    \item branch ablations (\texttt{full}, \texttt{local\_only}, \texttt{global\_only});
+    \item boundary gate statistics for edge and middle positions;
+    \item spectral low/mid/high band energy for the global branch;
+    \item qualitative free-form generation on unseen prompts.
+\end{itemize}
+
+\section{Results}
+\subsection{Fusion ablation}
+Table~\ref{tab:fusion} reports the early fusion results. The simple additive FTN clearly outperformed the gated fusion version, despite the latter having greater expressive flexibility.
+
+\begin{table}[ht]
+    \centering
+    \caption{Early FTN fusion comparison on the small setup.}
+    \label{tab:fusion}
+    \begin{tabular}{lrrrr}
+        \toprule
+        Model & Params (M) & Val loss & Perplexity & Accuracy \\
+        \midrule
+        FTN \texttt{v1\_add} & 15.60 & 5.4527 & 233.38 & 0.2550 \\
+        FTN gated fusion & 16.13 & 17.8412 & 5.60e7 & 0.1281 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+This was one of the most unexpected findings in the project. A learned gate or concatenative fusion might have seemed like the natural choice for combining two distinct branches, yet the opposite occurred. The most plausible interpretation is that FTN's main difficulty was not branch routing but branch formation: once the branch representations become useful, addition is sufficient.
+
+\subsection{Small matched comparison}
+The most important controlled result is the matched small FTN vs.\ small GPT-2 comparison. Table~\ref{tab:small-main} summarizes the outcome.
+
+\begin{table}[ht]
+    \centering
+    \caption{Matched small-scale comparison on TinyStories.}
+    \label{tab:small-main}
+    \begin{tabular}{lrrrrr}
+        \toprule
+        Model & Params (M) & Val loss & Perplexity & Accuracy & Tok/s \\
+        \midrule
+        GPT-2 scratch small & 16.09 & 3.5907 & 36.26 & 0.3407 & 2642.25 \\
+        FTN \texttt{v1\_add} & 15.60 & 5.4527 & 233.38 & 0.2550 & 5522.5 \\
+        FTN \texttt{v2\_boundary} small & 17.44 & 2.4271 & 11.33 & 0.7150 & 1327.85 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+This is the strongest baseline result in the paper: the small \texttt{v2\_boundary} FTN achieved lower validation loss than the matched small scratch GPT-2 model, while also improving substantially over the earlier FTN variant.
+
+The branch diagnostics support the view that \texttt{v2\_boundary} is doing meaningful work in the global branch rather than merely masking it. For the small model, the full branch-mode loss was 2.4271, compared with 6.1947 for \texttt{global\_only} and 9.9058 for \texttt{local\_only}. This indicates that both branches contribute, with the global path carrying much of the useful predictive structure.
+
+\subsection{Scaling behavior}
+We next trained larger \texttt{v2\_boundary} models. The 50.41M-parameter \texttt{large40m} model was worse than the small model, while the 82.41M-parameter \texttt{xlarge80m} model improved dramatically under a substantially larger training setup. The result is summarized in Table~\ref{tab:scaling}.
+
+\begin{table}[ht]
+    \centering
+    \caption{FTN scaling results.}
+    \label{tab:scaling}
+    \begin{tabular}{lrrrr}
+        \toprule
+        Model & Params (M) & Val loss & Perplexity & Total train time \\
+        \midrule
+        FTN \texttt{v2\_boundary} small & 17.44 & 2.4271 & 11.33 & 10{,}008 s \\
+        FTN \texttt{v2\_boundary} large40m & 50.41 & 3.8706 & 47.97 & 78{,}038 s \\
+        FTN \texttt{v2\_boundary} xlarge80m & 82.41 & 0.8112 & 2.25 & 613{,}724 s \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The non-monotonic jump from small to \texttt{large40m} is important. We do not interpret that dip as evidence that FTN necessarily fails to scale. Instead, the most likely explanation is recipe mismatch: the 40M-class run appears under-optimized relative to its size, while the much longer and larger-budget \texttt{xlarge80m} run shows that FTN can improve substantially when the training setup is scaled accordingly.
+
+Supporting this interpretation, the \texttt{xlarge80m} model not only achieved very low loss, but also showed healthier global branch statistics than earlier FTN variants. Its average global low-band energy remained high but no longer collapsed almost entirely into the lowest frequencies, and its \texttt{global\_only} loss of 1.7916 was vastly better than the corresponding ablations in smaller and earlier FTN models.
+
+\subsection{Qualitative generation}
+Despite the strong predictive loss of the largest FTN, qualitative open-ended generation still lags behind Transformer baselines. In held-out prompt completions, the small GPT-2 scratch baseline usually produced more sentence-like and narratively plausible continuations, while FTN outputs often degraded into lexical jumps, repetition bursts, or token-soup behavior.
+
+The largest FTN was clearly better than the smaller FTN variants, but it still did not reliably produce coherent free-form continuations. This gap is central to the interpretation of our results: FTN is learning a powerful predictive structure, but that structure is not yet translating cleanly into robust open-ended language generation.
+
+\section{Discussion}
+\label{sec:discussion}
+We highlight three lessons from these experiments.
+
+\paragraph{1. Branch quality mattered more than fusion complexity.}
+The additive fusion result is one of the clearest surprises in the project. If the main challenge were dynamic routing between local and global features, gated fusion might have helped. Instead, the data suggest that FTN's bottleneck may have lain earlier: the model needed healthier branch-internal representations more than a more complex fusion rule.
+
+\paragraph{2. Boundary-aware global mixing was a meaningful architectural step.}
+The jump from \texttt{v1\_add} to \texttt{v2\_boundary} was not cosmetic. The new branch projections, learned frequency gains, and position-dependent residual mixing changed optimization behavior enough to produce a meaningful small-model improvement over the scratch GPT-2 baseline. This provides evidence that the poor early FTN results were not simply proof that the architecture family was doomed.
+
+\paragraph{3. Low next-token loss is not the whole story.}
+The largest FTN reaches a remarkably low validation loss, but qualitative generation remains weaker than Transformer baselines. This mismatch is not a minor side note; it is one of the most scientifically useful findings in the paper. It suggests that the representations FTN learns are predictive in a strong statistical sense, but still incomplete from the standpoint of long-form semantic and discourse coherence.
+
+\section{Limitations}
+This first paper has several important limitations.
+
+\begin{itemize}[leftmargin=1.5em]
+    \item The broadest claim we can support is that FTN is a promising attention-free language modeling direction under constrained compute, not that it is generally superior to Transformers.
+    \item Our cleanest baseline comparison is the matched small FTN vs.\ small scratch GPT-2 setup. Larger FTN scaling results are strong, but they are not yet paired with equally matched larger Transformer baselines.
+    \item TinyStories is a useful but limited corpus. It rewards strong next-token prediction on relatively regular narrative text and is not by itself a sufficient test of general sequence modeling.
+    \item Qualitative coherence still lags behind Transformer baselines, even when FTN reaches strong validation loss.
+    \item Several training setup details should be reported more completely before formal publication, including optimizer settings, learning rate schedule, batch size, hardware, precision, and random seed coverage.
+\end{itemize}
+
+\section{Future Work}
+This paper opens several immediate directions for follow-up work.
+
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Representation analysis.} We are particularly interested in sparse autoencoder analysis across FTN and Transformer baselines to determine what FTN learns well and what remains missing.
+    \item \textbf{Matched larger baselines.} A larger matched scratch GPT-2 comparison remains essential for drawing stronger comparative conclusions.
+    \item \textbf{Broader sequence tasks.} To move from this foundation paper toward a broader FTN program, evaluation should expand beyond TinyStories to more order-sensitive, retrieval-heavy, and algorithmic sequence tasks.
+    \item \textbf{Generation-focused improvements.} The gap between predictive loss and coherent generation suggests that FTN may need additional mechanisms for richer semantic continuity or more stable long-range token planning.
+\end{enumerate}
+
+\section{Conclusion}
+FTN is not yet a drop-in replacement for Transformers. However, the results in this paper show that an attention-free spectral language model can be more promising than early weak baselines suggested. The \texttt{v2\_boundary} architecture materially improves learning, a small FTN can achieve lower validation loss than a matched small scratch GPT-2 baseline, and a larger FTN can reach strong predictive performance when paired with increased data and optimization budget.
+
+At the same time, the architecture still falls short in free-form generative coherence, and that shortfall is important rather than embarrassing. It turns FTN from a narrow benchmark curiosity into a genuine research problem: a model family that can clearly learn useful predictive structure, yet still seems to represent sequence structure differently from Transformers. That is exactly the kind of result worth a first paper.
+
+\section*{AI Assistance Disclosure}
+OpenAI Codex was used as a coding assistant during implementation, debugging, refactoring, and experiment workflow development. The project began with access to GPT-5.5 and later used GPT-5.4 as the effective model once the working context was sufficiently established. All research claims, experimental design decisions, analysis, interpretations, and final manuscript content were reviewed, revised, and approved by the human authors, who take responsibility for the work.
+
+\begin{thebibliography}{9}
+
+\bibitem{vaswani2017attention}
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin.
+\newblock Attention Is All You Need.
+\newblock In \emph{Advances in Neural Information Processing Systems}, 2017.
+
+\bibitem{katharopoulos2020transformers}
+Angelos Katharopoulos, Apoorv Vyas, Nikolaos Pappas, and Francois Fleuret.
+\newblock Transformers are RNNs: Fast Autoregressive Transformers with Linear Attention.
+\newblock In \emph{Proceedings of the 37th International Conference on Machine Learning}, 2020.
+
+\bibitem{choromanski2021performer}
+Krzysztof Choromanski, Valerii Likhosherstov, David Dohan, Xingyou Song, Andreea Gane, Tam\'as Sarl\'os, Peter Hawkins, Jared Davis, Afroz Mohiuddin, Lukasz Kaiser, David Belanger, Lucy Colwell, and Adrian Weller.
+\newblock Rethinking Attention with Performers.
+\newblock In \emph{International Conference on Learning Representations}, 2021.
+
+\bibitem{leethorp2022fnet}
+James Lee-Thorp, Joshua Ainslie, Ilya Eckstein, and Santiago Onta\~n\'on.
+\newblock FNet: Mixing Tokens with Fourier Transforms.
+\newblock In \emph{Proceedings of NAACL-HLT}, 2022.
+
+\bibitem{gu2021ssm}
+Albert Gu, Karan Goel, and Christopher R\'e.
+\newblock Efficiently Modeling Long Sequences with Structured State Spaces.
+\newblock In \emph{International Conference on Learning Representations}, 2022.
+
+\bibitem{poli2023hyena}
+Michael Poli, Stefano Massaroli, Eric Q. Nguyen, Daniel Y. Fu, Tri Dao, Stephen Baccus, Yoshua Bengio, Christopher R\'e, and Stefano Ermon.
+\newblock Hyena Hierarchy: Towards Larger Convolutional Language Models.
+\newblock In \emph{Proceedings of the 40th International Conference on Machine Learning}, 2023.
+
+\end{thebibliography}
+
+\end{document}
