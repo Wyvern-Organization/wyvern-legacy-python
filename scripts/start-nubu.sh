@@ -26,7 +26,13 @@ start_if_missing() {
 cd "$APP_DIR"
 
 echo "Starting nubu backend..."
-docker compose up -d --build
+DOCKER=(docker)
+if ! docker ps >/dev/null 2>&1; then
+  if command -v sudo >/dev/null 2>&1; then
+    DOCKER=(sudo docker)
+  fi
+fi
+"${DOCKER[@]}" compose up -d --build
 
 for _ in $(seq 1 30); do
   if curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then

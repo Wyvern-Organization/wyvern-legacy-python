@@ -143,7 +143,7 @@ curl --max-time 15 -fsS http://127.0.0.1:8000/health
 
 The nubu startup script starts Cloudflared first, then Code Tunnels as fallback. Copy the Cloudflared URL into `landing/index.html` as `WYVERN_NUBU_CLOUDFLARE_URL`. Keep the Code Tunnels URL in `WYVERN_NUBU_FALLBACK_URL`.
 
-If Docker requires sudo:
+If Docker requires sudo, `scripts/start-nubu.sh` will use `sudo docker` automatically. For manual restarts:
 
 ```bash
 sudo docker restart wyvern-app
