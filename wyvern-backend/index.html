@@ -4897,11 +4897,12 @@ function normalizeDetectedUrlCandidate(raw = '') {
 }
 
 function normalizeNavigableUrl(raw = '') {
-  const candidate = (raw || '').trim();
-  if (!candidate) return null;
+  const candidate = String(raw || '').trim();
+  if (!candidate || /[\u0000-\u001f\u007f\\]/.test(candidate)) return null;
   try {
     const parsed = new URL(candidate, location.origin);
     if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+    if (parsed.username || parsed.password) return null;
     return parsed.toString();
   } catch {
     return null;

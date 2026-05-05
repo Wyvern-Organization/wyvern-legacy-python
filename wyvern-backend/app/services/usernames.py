@@ -1,4 +1,4 @@
-import random
+import secrets
 
 from fastapi import HTTPException, status
 from sqlalchemy import and_, select
@@ -18,7 +18,7 @@ async def generate_discriminator(db: AsyncSession, username: str, *, exclude_use
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username is unavailable")
 
     while True:
-        candidate = f"{random.randint(1, 9999):04d}"
+        candidate = f"{secrets.randbelow(9999) + 1:04d}"
         if candidate not in used:
             return candidate
 

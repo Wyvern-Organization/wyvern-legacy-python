@@ -10,6 +10,10 @@ services:
         condition: service_started
     env_file:
       - .env
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     ports:
       - "${WYVERN_HOST_PORT:-8009}:8000"
     volumes:

@@ -163,11 +163,29 @@ async def indexing_mode_middleware(request: Request, call_next):
 
 
 @app.middleware("http")
-async def media_security_headers_middleware(request: Request, call_next):
+async def security_headers_middleware(request: Request, call_next):
     response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), payment=(), usb=()"
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com data:; "
+            "img-src 'self' data: https:; "
+            "media-src 'self' https: blob:; "
+            "connect-src 'self' https: wss:; "
+            "frame-src 'self' https:; "
+            "object-src 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        ),
+    )
     media_prefix = f"{settings.media_url_prefix}/"
     if request.url.path == settings.media_url_prefix or request.url.path.startswith(media_prefix):
-        response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
     return response
 

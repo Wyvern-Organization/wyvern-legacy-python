@@ -810,6 +810,7 @@
       }
       try {
         const parsed = new URL(candidate, location.origin);
+        if (parsed.username || parsed.password) return null;
         return ['http:', 'https:'].includes(parsed.protocol) ? parsed.toString() : null;
       } catch {
         return null;

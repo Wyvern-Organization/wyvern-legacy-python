@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 
 from app.services.live_bridge import queue_realtime_event
 from app.services.redis_client import get_redis
@@ -7,6 +8,7 @@ from app.websocket.manager import manager
 
 
 PUBSUB_CHANNEL = "wyvern:channel-events"
+logger = logging.getLogger(__name__)
 _listener_task: asyncio.Task | None = None
 
 
@@ -59,8 +61,12 @@ async def _pubsub_listener() -> None:
                     event_payload = payload.get("payload")
                     extra_user_ids = {str(item) for item in payload.get("extra_user_ids", []) if str(item)}
                     user_ids = {str(item) for item in payload.get("user_ids", []) if str(item)}
-                except Exception:
-                    continue
+                except (TypeError, json.JSONDecodeError, AttributeError) as exc:
+                    logger.debug("Ignoring malformed pubsub payload: %s", exc)
+                    channel_id = ""
+                    event_payload = None
+                    extra_user_ids = set()
+                    user_ids = set()
 
                 if user_ids and isinstance(event_payload, dict):
                     await manager.broadcast_to_users(user_ids, event_payload)

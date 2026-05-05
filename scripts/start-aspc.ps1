@@ -30,7 +30,7 @@ docker compose up -d --build
 for ($i = 0; $i -lt 30; $i++) {
   try {
     $health = Invoke-RestMethod -Uri $healthUrl -TimeoutSec 2
-    if ($health.ok) {
+    if ($health.success -or $health.status -eq 'ok' -or $health.data.status -eq 'ok') {
       break
     }
   } catch {

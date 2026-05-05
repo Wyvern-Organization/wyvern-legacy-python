@@ -9,6 +9,11 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+RUN adduser --disabled-password --gecos "" --uid 1000 wyvern \
+    && mkdir -p /app/media \
+    && chown -R wyvern:wyvern /app
+
+USER wyvern
 
 EXPOSE 8000
 

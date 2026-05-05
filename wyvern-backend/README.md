@@ -84,7 +84,7 @@ Copy `.env.example` to `.env` and set values.
 - `DEBUG` default: `false`
 - `WYVERN_HOST_PORT` host port exposed by Docker Compose (ASPC: `8009`, nubu: `8000`)
 - `API_V1_PREFIX` default: `/api/v1`
-- `DATABASE_URL` PostgreSQL async URL
+- `DATABASE_URL` required PostgreSQL async URL; do not rely on committed default database credentials
 - `POSTGRES_USER` and `POSTGRES_PASSWORD` are required by Docker Compose; do not rely on a default database password
 - `REDIS_URL` Redis URL
 - `JWT_SECRET_KEY` required strong secret; startup fails if missing or shorter than 32 characters

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     debug: bool = False
 
-    database_url: str = "postgresql+asyncpg://postgres:postgres@postgres:5432/wyvern"
+    database_url: str = Field(validation_alias=AliasChoices("DATABASE_URL", "database_url"))
     redis_url: str = "redis://redis:6379/0"
     sync_peer_api_url: str | None = None
     node_id: str = Field(default="aspc", validation_alias=AliasChoices("WYVERN_NODE_ID", "NODE_ID"))
@@ -73,6 +73,14 @@ class Settings(BaseSettings):
         if not self.cors_origins:
             return []
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
+
+    @field_validator("database_url")
+    @classmethod
+    def validate_database_url(cls, value: str) -> str:
+        normalized = (value or "").strip()
+        if not normalized:
+            raise ValueError("DATABASE_URL is required")
+        return normalized
 
     @field_validator("jwt_secret_key")
     @classmethod

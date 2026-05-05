@@ -53,7 +53,7 @@ def test_access_token_subject(user_id: int) -> None:
 
 def test_username_rejects_handle_separator_and_controls() -> None:
     with pytest.raises(ValidationError):
-        RegisterRequest(username="admin#0001", email="admin@example.com", password="correct horse battery")
+        RegisterRequest(username="admin#0001", email="admin@example.com", password="correct horse battery")  # pragma: allowlist secret
 
     with pytest.raises(ValidationError):
         users.UserUpdateRequest(username="bad\nname")
@@ -126,7 +126,7 @@ async def test_upload_storage_rejects_unsafe_user_path(monkeypatch: pytest.Monke
 def test_edge_handoff_requires_sync_secret(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "app.services.sync_bridge.settings",
-        SimpleNamespace(sync_shared_secret=None, jwt_secret_key="jwt-secret-that-must-not-be-used"),
+        SimpleNamespace(sync_shared_secret=None, jwt_secret_key="jwt-secret-that-must-not-be-used"),  # pragma: allowlist secret
     )
 
     with pytest.raises(RuntimeError):
@@ -141,7 +141,7 @@ async def test_sync_bridge_omits_and_ignores_is_paid() -> None:
         username="Axel",
         discriminator="1234",
         email="axel@example.com",
-        password_hash="hash",
+        password_hash="hash",  # pragma: allowlist secret
         is_paid=True,
         created_at=datetime.now(tz=UTC),
     )

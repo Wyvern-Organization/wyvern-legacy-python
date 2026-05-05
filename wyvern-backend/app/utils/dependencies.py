@@ -23,7 +23,7 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
     token_type = payload.get("type")
-    if token_type != "access":
+    if token_type != "access":  # nosec B105
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
 
     user_id = payload.get("sub")

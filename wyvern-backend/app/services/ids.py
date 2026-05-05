@@ -17,7 +17,7 @@ ENTITY_PREFIXES = {
     "channel": "channel",
     "message": "msg",
     "server_invite": "invite",
-    "refresh_token": "session",
+    "refresh_token": "session",  # nosec B105
     "message_bookmark": "bookmark",
     "server_webhook": "webhook",
     "webhook_delivery_log": "webhook_delivery",
@@ -29,7 +29,7 @@ ENTITY_PREFIXES = {
     "id_migration_map": "idmap",
 }
 
-_CROCKFORD_BASE32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+_CROCKFORD_BASE32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"  # pragma: allowlist secret
 
 
 def normalize_node_id(value: str | None) -> str:
