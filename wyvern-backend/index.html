@@ -12188,7 +12188,7 @@ If you do not fully understand these risks, do not enable this mode.`;
             }, voiceActive ? heroIcon('phoneXMark', { size: 18 }) : heroIcon('phone', { size: 18 }))
           );
         }
-        if (store.state.user?.is_admin) {
+        if (store.state.user?.is_admin && featureFlagEnabled('admin_diagnostics_button')) {
           topActions.appendChild(adminCauseErrorButton());
         }
         topActions.append(

@@ -38,6 +38,12 @@ DEFAULT_RELEASE_FLAGS: list[dict[str, Any]] = [
         "stable_enabled": False,
         "edge_enabled": True,
     },
+    {
+        "key": "admin_diagnostics_button",
+        "description": "Show the admin diagnostics error button in the app topbar for release-channel testing.",
+        "stable_enabled": False,
+        "edge_enabled": True,
+    },
 ]
 
 CHANNEL_LOCKED_RELEASE_FLAGS: set[str] = {

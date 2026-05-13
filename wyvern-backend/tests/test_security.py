@@ -23,7 +23,7 @@ from app.services.sync_bridge import (
     _handoff_secret,
     _serialize_user,
 )
-from app.utils.security import create_access_token, decode_token
+from app.utils.security import create_access_token, decode_token, hash_password, verify_password
 
 
 PNG_BYTES = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00"
@@ -42,6 +42,15 @@ def test_access_token_round_trip() -> None:
     payload = decode_token(token)
     assert payload["sub"] == "123"
     assert payload["type"] == "access"
+
+
+def test_password_hash_round_trip() -> None:
+    password = "correct horse battery"  # pragma: allowlist secret
+    hashed = hash_password(password)
+
+    assert hashed != password
+    assert verify_password(password, hashed) is True
+    assert verify_password("wrong horse battery", hashed) is False
 
 
 @pytest.mark.parametrize("user_id", [1, 2, 99])
