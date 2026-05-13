@@ -6,6 +6,7 @@ from app.models.enums import ChannelType, MemberRole, PresenceStatus
 from app.models.id_migration import IdMigrationMap
 from app.models.message import Message
 from app.models.reaction import Reaction
+from app.models.recommendation import RecommendationEmbedding, RecommendationSignal, UserRecommendation
 from app.models.refresh_token import RefreshToken
 from app.models.release import ReleaseFlag, ReleasePromotionAudit
 from app.models.server import Server
@@ -25,6 +26,8 @@ __all__ = [
     "MessageBookmark",
     "PresenceStatus",
     "Reaction",
+    "RecommendationEmbedding",
+    "RecommendationSignal",
     "RefreshToken",
     "ReleaseFlag",
     "ReleasePromotionAudit",
@@ -36,6 +39,7 @@ __all__ = [
     "ServerWebhook",
     "ServerMember",
     "User",
+    "UserRecommendation",
     "WebhookDeliveryLog",
     "WorkspaceDocument",
     "WorkspaceRevision",

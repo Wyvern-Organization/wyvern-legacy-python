@@ -19,6 +19,13 @@ from app.schemas.server import (
     ServerUpdate,
 )
 from app.services.community import record_server_activity
+from app.services.recommendations import (
+    TARGET_SERVER,
+    mark_public_entity_stale,
+    recommended_server_rankings,
+    recommendations_enabled,
+    record_recommendation_signal,
+)
 from app.services.realtime import broadcast_server_event, broadcast_server_member_event
 from app.services.sync_bridge import bump_sync_version, enqueue_delete_event, enqueue_upsert_event
 from app.utils.dependencies import get_current_user
@@ -85,6 +92,7 @@ async def create_server(
     ).scalar_one()
     await enqueue_upsert_event(db, "server", server, base_sync_version=0)
     await enqueue_upsert_event(db, "server_member", owner_member, base_sync_version=0)
+    await mark_public_entity_stale(db, TARGET_SERVER, server.id)
     await record_server_activity(
         db,
         server_id=server.id,
@@ -116,9 +124,42 @@ async def list_servers(db: AsyncSession = Depends(get_db), current_user: User = 
 
 @router.get("/directory")
 async def list_server_directory(
+    recommended: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
+    if recommended and recommendations_enabled():
+        ranked_servers = await recommended_server_rankings(db, current_user)
+        server_ids = [str(item.item.id) for item in ranked_servers]
+        member_counts = {}
+        joined_ids = set()
+        if server_ids:
+            counts_result = await db.execute(
+                select(ServerMember.server_id, func.count(ServerMember.user_id).label("member_count"))
+                .where(ServerMember.server_id.in_(server_ids))
+                .group_by(ServerMember.server_id)
+            )
+            member_counts = {str(server_id): int(member_count or 0) for server_id, member_count in counts_result.all()}
+            joined_result = await db.execute(
+                select(ServerMember.server_id).where(
+                    ServerMember.server_id.in_(server_ids),
+                    ServerMember.user_id == current_user.id,
+                )
+            )
+            joined_ids = {str(server_id) for server_id in joined_result.scalars().all()}
+        entries = []
+        for item in ranked_servers:
+            server_id = str(item.item.id)
+            payload = ServerDirectoryOut(
+                server=ServerOut.model_validate(item.item),
+                member_count=member_counts.get(server_id, 0),
+                joined=server_id in joined_ids,
+            ).model_dump(mode="json")
+            payload["recommendation_score"] = item.score
+            payload["recommendation_reason"] = item.reason
+            entries.append(payload)
+        return success_response(entries)
+
     member_counts = (
         select(
             ServerMember.server_id.label("server_id"),
@@ -195,6 +236,8 @@ async def update_server(
         server.icon = payload.icon
     if "directory_opt_in" in provided and payload.directory_opt_in is not None:
         server.directory_opt_in = payload.directory_opt_in
+    if provided & {"name", "description", "directory_opt_in"}:
+        await mark_public_entity_stale(db, TARGET_SERVER, server.id)
     base_sync_version = bump_sync_version(server)
     await enqueue_upsert_event(db, "server", server, base_sync_version=base_sync_version)
     await record_server_activity(
@@ -264,6 +307,7 @@ async def join_server(
     db.add(new_member)
     await db.flush()
     await enqueue_upsert_event(db, "server_member", new_member, base_sync_version=0)
+    await record_recommendation_signal(db, current_user.id, TARGET_SERVER, server_id, "server.joined", weight=2.0)
     await record_server_activity(
         db,
         server_id=server_id,
@@ -368,6 +412,7 @@ async def join_server_by_invite(
         db.add(membership)
         await db.flush()
         await enqueue_upsert_event(db, "server_member", membership, base_sync_version=0)
+        await record_recommendation_signal(db, current_user.id, TARGET_SERVER, server.id, "server.joined", weight=2.0)
         await record_server_activity(
             db,
             server_id=server.id,

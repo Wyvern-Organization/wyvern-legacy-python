@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models import Channel, ChannelType, MemberRole, ServerMember, User
 from app.schemas.channel import ChannelCreate, ChannelOut, ChannelUpdate
 from app.services.community import record_server_activity
+from app.services.recommendations import TARGET_SERVER, mark_public_entity_stale
 from app.services.realtime import broadcast_channel_event
 from app.services.sync_bridge import bump_sync_version, enqueue_delete_event, enqueue_upsert_event
 from app.utils.dependencies import get_current_user
@@ -54,6 +55,7 @@ async def create_channel(
     db.add(channel)
     await db.flush()
     await enqueue_upsert_event(db, "channel", channel, base_sync_version=0)
+    await mark_public_entity_stale(db, TARGET_SERVER, server_id)
     await record_server_activity(
         db,
         server_id=server_id,
@@ -134,6 +136,8 @@ async def update_channel(
         channel.category = payload.category
     base_sync_version = bump_sync_version(channel)
     await enqueue_upsert_event(db, "channel", channel, base_sync_version=base_sync_version)
+    if payload.name is not None:
+        await mark_public_entity_stale(db, TARGET_SERVER, channel.server_id)
     await record_server_activity(
         db,
         server_id=channel.server_id,
@@ -171,6 +175,7 @@ async def delete_channel(
     recipient_ids_result = await db.execute(select(ServerMember.user_id).where(ServerMember.server_id == channel.server_id))
     recipient_ids = {str(user_id) for user_id in recipient_ids_result.scalars().all()}
     await enqueue_delete_event(db, "channel", channel, base_sync_version=channel.sync_version)
+    await mark_public_entity_stale(db, TARGET_SERVER, channel.server_id)
     await record_server_activity(
         db,
         server_id=channel.server_id,

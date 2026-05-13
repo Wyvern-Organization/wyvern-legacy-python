@@ -23,6 +23,7 @@ Production-focused FastAPI backend for Wyvern, a server/channel/DM messaging pla
 - Real-time: one WebSocket per user with channel subscription fanout
 - Voice: basic voice channel presence + WebRTC signaling for audio calls
 - Directories: opt-in User Directory + opt-in Server Directory
+- Recommendations: public-only directory suggestions with cached signals and optional EmbeddingGemma embeddings
 - Admin: `/admin` UI + `/api/v1/admin/overview` feed for users/servers/activity
 
 ## Response Contract
@@ -108,6 +109,21 @@ Copy `.env.example` to `.env` and set values.
 - `RATE_LIMIT_AUTH_WINDOW_SECONDS` default: `60`
 - `RATE_LIMIT_WEBHOOK_COUNT` default: `30`
 - `RATE_LIMIT_WEBHOOK_WINDOW_SECONDS` default: `60`
+- `RECOMMENDATIONS_ENABLED` default: `false`; starts the public recommendation worker when enabled
+- `RECOMMENDATION_EMBEDDING_MODEL` default: `google/embeddinggemma-300m-qat-q8_0-unquantized`
+- `RECOMMENDATION_ACTIVE_REFRESH_HOURS` default: `6`
+- `RECOMMENDATION_NORMAL_REFRESH_HOURS` default: `24`
+- `RECOMMENDATION_FULL_REFRESH_HOURS` default: `24`
+- `RECOMMENDATION_MAX_CANDIDATES` default: `50`
+- `RECOMMENDATION_WORKER_POLL_SECONDS` default: `300`
+
+## Public Recommendations
+
+- `GET /users/directory?recommended=true` and `GET /servers/directory?recommended=true` rank discoverable entries for the current user.
+- V1 only indexes public opt-in users and public opt-in servers.
+- Private servers, DMs, private workspaces, and non-opted-in profiles are not embedded or used as recommendation targets.
+- Embeddings refresh in a background worker and are not computed on every directory request.
+- The EmbeddingGemma runtime loads lazily; keep `RECOMMENDATIONS_ENABLED=false` until the model runtime is installed and verified on the node.
 
 ## Admin Access Allowlist
 
@@ -179,12 +195,14 @@ Base prefix: `/api/v1`
 - `PATCH /users/me`
 - `GET /users/lookup?q=<username|username#1234>`
 - `GET /users/directory`
+- `GET /users/directory?recommended=true`
 - `PUT /users/me/presence`
 - `GET /users/{user_id}`
 - `GET /users/{user_id}/presence`
 - `POST /servers`
 - `GET /servers`
 - `GET /servers/directory`
+- `GET /servers/directory?recommended=true`
 - `GET /servers/{server_id}`
 - `PATCH /servers/{server_id}`
 - `DELETE /servers/{server_id}`

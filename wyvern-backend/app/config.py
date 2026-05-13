@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     rate_limit_webhook_count: int = 30
     rate_limit_webhook_window_seconds: int = 60
 
+    recommendations_enabled: bool = False
+    recommendation_embedding_model: str = "google/embeddinggemma-300m-qat-q8_0-unquantized"
+    recommendation_active_refresh_hours: int = 6
+    recommendation_normal_refresh_hours: int = 24
+    recommendation_full_refresh_hours: int = 24
+    recommendation_max_candidates: int = 50
+    recommendation_worker_poll_seconds: int = 300
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @field_validator("debug", mode="before")
@@ -176,7 +184,7 @@ class Settings(BaseSettings):
         normalized = (value or "aspc").strip().lower()
         return normalized if normalized in {"aspc", "nubu"} else "aspc"
 
-    @field_validator("sync_enabled", "edge_mode_enabled", "indexing", mode="before")
+    @field_validator("sync_enabled", "edge_mode_enabled", "indexing", "recommendations_enabled", mode="before")
     @classmethod
     def parse_bool_flag(cls, value: bool | str) -> bool:
         if isinstance(value, str):
@@ -186,6 +194,22 @@ class Settings(BaseSettings):
             if lowered in {"0", "false", "no", "off"}:
                 return False
         return bool(value)
+
+    @field_validator(
+        "recommendation_active_refresh_hours",
+        "recommendation_normal_refresh_hours",
+        "recommendation_full_refresh_hours",
+        "recommendation_max_candidates",
+        "recommendation_worker_poll_seconds",
+        mode="before",
+    )
+    @classmethod
+    def normalize_positive_int(cls, value: int | str) -> int:
+        try:
+            normalized = int(value)
+        except Exception:
+            normalized = 1
+        return max(1, normalized)
 
     def resolve_media_dir(self, project_root: Path) -> Path:
         media_dir = Path(self.local_media_dir)

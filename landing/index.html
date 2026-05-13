@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600;700&display=swap"
     rel="stylesheet"
   />
   <style>
@@ -59,32 +59,6 @@
       overflow-x: hidden;
     }
 
-    .parallax-bg {
-      display: none;
-    }
-
-    .bg-array-wrap {
-      position: absolute;
-      display: grid;
-      gap: 2px;
-      opacity: 0.22;
-      transition: transform 0.1s linear;
-    }
-
-    .bg-led {
-      width: 7px;
-      height: 5px;
-      border-radius: 1px;
-      background: rgba(0, 200, 255, 0.08);
-      transition: background 0.8s ease, box-shadow 0.8s ease, opacity 0.8s ease;
-    }
-
-    .bg-led.on {
-      background: var(--neon);
-      box-shadow: 0 0 12px rgba(0, 200, 255, 0.9);
-      opacity: 1;
-    }
-
     nav {
       position: sticky;
       top: 0;
@@ -95,9 +69,8 @@
       justify-content: space-between;
       gap: 24px;
       padding: 0 32px;
-      background: rgba(0, 0, 0, 0.92);
+      background: rgba(0, 0, 0, 0.98);
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(12px);
     }
 
     .nav-logo {
@@ -171,6 +144,11 @@
 
     section {
       margin-top: 96px;
+    }
+
+    section + section {
+      content-visibility: auto;
+      contain-intrinsic-size: 1px 720px;
     }
 
     .hero {
@@ -755,7 +733,6 @@
     <strong>Notice</strong>
     <span id="maintenanceDetails"></span>
   </div>
-  <div class="parallax-bg" id="parallax-bg"></div>
 
   <nav>
     <a href="#top" class="nav-logo">
@@ -951,29 +928,23 @@
     const level = null; // Allowed values: null, "low", "medium", "major"
     const est_time = null;
     const message = null; // Optional additional message to display
-    const WYVERN_NUBU_CLOUDFLARE_URL = "https://ministers-monitor-respondents-hull.trycloudflare.com";
+    const WYVERN_NUBU_CLOUDFLARE_URL = "https://cole-vote-jewel-tap.trycloudflare.com";
     const WYVERN_NUBU_FALLBACK_URL = "https://nb4g2lmm-8000.usw2.devtunnels.ms";
-    const WYVERN_ASPC_URL = "https://strengths-leave-candle-seasons.trycloudflare.com";
+    const WYVERN_ASPC_URL = "https://cartridges-twins-primarily-resort.trycloudflare.com";
     const WYVERN_NUBU_URL = WYVERN_NUBU_CLOUDFLARE_URL || WYVERN_NUBU_FALLBACK_URL;
     const FALLBACK_URL = `${WYVERN_NUBU_FALLBACK_URL}/`;
     const WYVERN_URL = WYVERN_ASPC_URL;
-    const WYVERN_LAST_RESORT_NODE = {
-      name: "nubu fallback",
-      url: WYVERN_NUBU_FALLBACK_URL,
-      priority: 999,
-      latency: Infinity,
-    };
     const WYVERN_NODES = [
       { name: "ASPC", url: WYVERN_ASPC_URL, priority: 10 },
       { name: "nubu", url: WYVERN_NUBU_CLOUDFLARE_URL, priority: 20 },
     ].filter((node) => Boolean(node.url));
     const NODE_HEALTH_TIMEOUT_MS = 1200;
+    const IFRAME_BOOT_TIMEOUT_MS = 8000;
     let wyvernNodePromise = null;
     const WYVERN_EMBED_VERSION = "2026-04-05-giphy";
     const MIRROR_BASE = "/mirror";
     const LANDING_MIRROR_BASE = "/landing/mirror";
     const LANDING_MIRROR_QUERY_PARAM = "mirror";
-    const MIRROR_BYPASS_PREFIXES = ["/landing", "/mirror", "/changelog.md", "/wyvern_logo.png", "/wyvern_logo_transparent.png"];
 
     function normalizeUrl(input) {
       try {
@@ -981,17 +952,6 @@
       } catch {
         return null;
       }
-    }
-
-    function shouldMirror(urlObj) {
-      if (!urlObj) return false;
-      if (urlObj.origin !== window.location.origin) return false;
-      return !MIRROR_BYPASS_PREFIXES.some((prefix) => urlObj.pathname === prefix || urlObj.pathname.startsWith(`${prefix}/`));
-    }
-
-    function toMirrorUrl(urlObj) {
-      const path = urlObj.pathname === "/" ? "/" : urlObj.pathname;
-      return `${window.location.origin}${MIRROR_BASE}${path}${urlObj.search}`;
     }
 
     function buildMirrorOpenUrl(input) {
@@ -1034,6 +994,10 @@
       return normalizeUrl(baseUrlOverride || WYVERN_URL);
     }
 
+    function getLastResortUrl() {
+      return normalizeUrl(FALLBACK_URL)?.toString() || null;
+    }
+
     function getWyvernHealthUrl(node) {
       const baseUrl = normalizeUrl(node?.url);
       if (!baseUrl) return null;
@@ -1073,11 +1037,10 @@
       if (!wyvernNodePromise) {
         wyvernNodePromise = (async () => {
           const orderedNodes = [...WYVERN_NODES].sort((a, b) => a.priority - b.priority);
-          for (const node of orderedNodes) {
-            const healthyNode = await probeWyvernNode(node);
-            if (healthyNode) return healthyNode;
-          }
-          return WYVERN_LAST_RESORT_NODE;
+          const healthyNodes = (await Promise.all(orderedNodes.map((node) => probeWyvernNode(node))))
+            .filter(Boolean)
+            .sort((a, b) => (a.priority - b.priority) || (a.latency - b.latency));
+          return healthyNodes[0] || null;
         })()
           .finally(() => {
             window.setTimeout(() => {
@@ -1115,9 +1078,10 @@
       }
     }
 
-    function buildConfiguredWyvernTargetUrl(target, baseUrlOverride = null) {
+    function buildConfiguredWyvernTargetUrl(target, baseUrlOverride = null, options = {}) {
       const baseUrl = getConfiguredWyvernBaseUrl(baseUrlOverride);
       if (!baseUrl || !target) return null;
+      const { includeEmbedVersion = true } = options;
 
       const url = new URL(baseUrl.toString());
       const basePath = url.pathname && url.pathname !== "/" ? url.pathname.replace(/\/$/, "") : "";
@@ -1125,50 +1089,19 @@
       url.pathname = `${basePath}${targetPath}` || "/";
       url.search = target.search || "";
       url.hash = target.hash || "";
-      url.searchParams.set("_landing_embed_v", WYVERN_EMBED_VERSION);
+      if (includeEmbedVersion) {
+        url.searchParams.set("_landing_embed_v", WYVERN_EMBED_VERSION);
+      }
       return url.toString();
     }
 
-    function looksLikeWyvernAppDocument(html) {
-      const content = String(html || "");
-      return /API_PREFIX\s*=\s*['"]\/api\/v1['"]/.test(content) || /sessionStorage\.getItem\(['"]wy_access['"]\)/.test(content);
-    }
-
-    function canUseCurrentOriginApp(targetPath) {
-      if (!targetPath) return false;
-      return !MIRROR_BYPASS_PREFIXES.some((prefix) => targetPath === prefix || targetPath.startsWith(`${prefix}/`));
-    }
-
-    function patchFetchMirror() {
-      const nativeFetch = window.fetch.bind(window);
-      window.fetch = async function patchedFetch(input, init) {
-        if (typeof input === "string" || input instanceof URL) {
-          const candidate = normalizeUrl(String(input));
-          if (shouldMirror(candidate)) input = toMirrorUrl(candidate);
-        } else if (input instanceof Request) {
-          const candidate = normalizeUrl(input.url);
-          if (shouldMirror(candidate)) input = new Request(toMirrorUrl(candidate), input);
-        }
-        return nativeFetch(input, init);
-      };
-    }
-
-    function patchXhrMirror() {
-      const nativeOpen = XMLHttpRequest.prototype.open;
-      XMLHttpRequest.prototype.open = function patchedOpen(method, url, ...rest) {
-        const candidate = normalizeUrl(String(url));
-        const nextUrl = shouldMirror(candidate) ? toMirrorUrl(candidate) : url;
-        return nativeOpen.call(this, method, nextUrl, ...rest);
-      };
+    function buildDirectWyvernUrl(target, baseUrlOverride = null) {
+      return buildConfiguredWyvernTargetUrl(target, baseUrlOverride, { includeEmbedVersion: false });
     }
 
     function isLandingMirrorShell() {
       const params = new URLSearchParams(window.location.search);
       return params.has(LANDING_MIRROR_QUERY_PARAM) || window.location.pathname === "/landing/mirror" || window.location.pathname.startsWith("/landing/mirror/");
-    }
-
-    function isPathBasedLandingMirrorShell() {
-      return window.location.pathname === "/landing/mirror" || window.location.pathname.startsWith("/landing/mirror/");
     }
 
     function getLandingMirrorTarget() {
@@ -1185,48 +1118,37 @@
       };
     }
 
-    async function fetchLandingMirrorDocument(target) {
-      const attempts = [];
-      if (canUseCurrentOriginApp(target.path)) {
-        attempts.push({
-          label: "current-origin app",
-          url: `${window.location.origin}${target.path}${target.search || ""}`,
-        });
-      }
-      if (isPathBasedLandingMirrorShell()) {
-        attempts.push({
-          label: "mirror",
-          url: `${window.location.origin}${MIRROR_BASE}${target.path}${target.search || ""}`,
-        });
-      }
+    function getLandingHomeUrl() {
+      const landingUrl = new URL(window.location.href);
+      landingUrl.pathname = getLandingEntryPath();
+      landingUrl.search = "";
+      landingUrl.hash = "";
+      return landingUrl.toString();
+    }
 
-      const errors = [];
-      for (const attempt of attempts) {
-        try {
-          const response = await fetch(attempt.url, {
-            redirect: "follow",
-            headers: {
-              "X-Wyvern-Landing-Mirror": "1",
-            },
-          });
-          if (!response.ok) {
-            throw new Error(`${attempt.label} request failed with ${response.status}`);
-          }
-          const html = await response.text();
-          if (!looksLikeWyvernAppDocument(html)) {
-            throw new Error(`${attempt.label} returned a non-app document`);
-          }
-          return html;
-        } catch (error) {
-          errors.push(String(error?.message || `${attempt.label} request failed`));
-        }
-      }
+    function renderLaunchUnavailableScreen({ title, detail, retryUrl, fallbackUrl, directUrl }) {
+      const actions = [
+        retryUrl ? `<a href="${retryUrl}" style="display:inline-flex;align-items:center;justify-content:center;min-width:150px;height:42px;padding:0 18px;border-radius:6px;background:rgba(0,200,255,0.14);color:#00c8ff;text-decoration:none;font-weight:600;">Back to landing</a>` : "",
+        directUrl ? `<a href="${directUrl}" style="display:inline-flex;align-items:center;justify-content:center;min-width:150px;height:42px;padding:0 18px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.88);text-decoration:none;font-weight:600;">Open app directly</a>` : "",
+        fallbackUrl ? `<a href="${fallbackUrl}" target="_blank" rel="noreferrer noopener" style="display:inline-flex;align-items:center;justify-content:center;min-width:150px;height:42px;padding:0 18px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.88);text-decoration:none;font-weight:600;">Try fallback link</a>` : "",
+      ].filter(Boolean).join("");
 
-      throw new Error(errors.join(" | "));
+      document.body.innerHTML = `
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:Inter,sans-serif;padding:24px;">
+          <div style="max-width:560px;text-align:center;">
+            <div style="font-family:Orbitron,sans-serif;letter-spacing:1.6px;font-size:12px;color:#00c8ff;text-transform:uppercase;">Wyvern Status</div>
+            <div style="margin-top:14px;font-size:24px;font-weight:700;color:#ffffff;">${title}</div>
+            <div style="margin-top:10px;font-size:14px;line-height:1.7;color:rgba(255,255,255,0.7);">${detail}</div>
+            <div style="margin-top:22px;display:flex;flex-wrap:wrap;justify-content:center;gap:12px;">${actions}</div>
+          </div>
+        </div>
+      `;
     }
 
     function renderIframeMirrorShell(target, baseUrlOverride = null) {
-      const iframeUrl = buildConfiguredWyvernTargetUrl(target, baseUrlOverride) || FALLBACK_URL;
+      const iframeUrl = buildConfiguredWyvernTargetUrl(target, baseUrlOverride);
+      if (!iframeUrl) return null;
+
       document.body.innerHTML = "";
       document.body.style.margin = "0";
       document.body.style.background = "#000";
@@ -1241,8 +1163,49 @@
       frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
       frame.style.cssText = "width:100%;height:100%;border:0;background:#000;display:block;";
 
+      const status = document.createElement("div");
+      status.style.cssText = "position:fixed;inset:auto 16px 16px 16px;z-index:10;display:flex;justify-content:center;pointer-events:none;";
+      status.innerHTML = `
+        <div style="max-width:520px;padding:14px 16px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(0,0,0,0.82);color:rgba(255,255,255,0.88);font-family:Inter,sans-serif;font-size:13px;line-height:1.6;pointer-events:auto;">
+          Connecting to Wyvern...
+        </div>
+      `;
+
+      const directUrl = buildDirectWyvernUrl(target, baseUrlOverride);
+      const fallbackUrl = getLastResortUrl();
+      const timeout = window.setTimeout(() => {
+        status.innerHTML = `
+          <div style="max-width:560px;padding:16px 18px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(0,0,0,0.86);color:rgba(255,255,255,0.88);font-family:Inter,sans-serif;font-size:13px;line-height:1.6;pointer-events:auto;">
+            <div style="font-family:Orbitron,sans-serif;letter-spacing:1px;font-size:11px;color:#00c8ff;text-transform:uppercase;">Connection Slow</div>
+            <div style="margin-top:8px;">Wyvern is taking longer than expected to respond. You can keep waiting, go back to the landing page, or open the app target directly.</div>
+            <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;">
+              <a href="${getLandingHomeUrl()}" style="display:inline-flex;align-items:center;justify-content:center;min-width:138px;height:38px;padding:0 16px;border-radius:6px;background:rgba(0,200,255,0.14);color:#00c8ff;text-decoration:none;font-weight:600;">Back to landing</a>
+              ${directUrl ? `<a href="${directUrl}" style="display:inline-flex;align-items:center;justify-content:center;min-width:138px;height:38px;padding:0 16px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.88);text-decoration:none;font-weight:600;">Open directly</a>` : ""}
+              ${fallbackUrl ? `<a href="${fallbackUrl}" target="_blank" rel="noreferrer noopener" style="display:inline-flex;align-items:center;justify-content:center;min-width:138px;height:38px;padding:0 16px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.88);text-decoration:none;font-weight:600;">Try fallback</a>` : ""}
+            </div>
+          </div>
+        `;
+      }, IFRAME_BOOT_TIMEOUT_MS);
+
+      frame.addEventListener("load", () => {
+        window.clearTimeout(timeout);
+        status.remove();
+      });
+
+      frame.addEventListener("error", () => {
+        window.clearTimeout(timeout);
+        renderLaunchUnavailableScreen({
+          title: "Wyvern could not be loaded here",
+          detail: "The embedded app did not start correctly. Opening the app directly is usually more reliable while temporary tunnel URLs are rotating.",
+          retryUrl: getLandingHomeUrl(),
+          fallbackUrl,
+          directUrl,
+        });
+      });
+
       wrap.appendChild(frame);
       document.body.appendChild(wrap);
+      document.body.appendChild(status);
       return iframeUrl;
     }
 
@@ -1259,33 +1222,55 @@
       `;
 
       const node = await resolveWyvernNode();
-      const iframeUrl = renderIframeMirrorShell(target, node?.url);
+      if (!node?.url) {
+        renderLaunchUnavailableScreen({
+          title: "Wyvern is temporarily unavailable",
+          detail: "None of the configured app nodes responded to a health check just now, so the launcher stopped before sending you into a black screen.",
+          retryUrl: getLandingHomeUrl(),
+          fallbackUrl: getLastResortUrl(),
+          directUrl: null,
+        });
+        return;
+      }
+
+      const iframeUrl = renderIframeMirrorShell(target, node.url);
       if (!iframeUrl) {
-        document.body.innerHTML = `
-          <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:Inter,sans-serif;padding:24px;">
-            <div style="max-width:520px;text-align:center;">
-              <div style="font-family:Orbitron,sans-serif;letter-spacing:1px;font-size:12px;color:#00c8ff;text-transform:uppercase;">Mirror Unavailable</div>
-              <div style="margin-top:12px;font-size:15px;color:rgba(255,255,255,0.9);">The mirrored Wyvern app could not be loaded into this page.</div>
-              <div style="margin-top:8px;font-size:13px;color:rgba(255,255,255,0.58);">Safe iframe fallback could not be created.</div>
-              <div style="margin-top:18px;"><a href="${FALLBACK_URL}" target="_blank" rel="noreferrer noopener" style="color:#00c8ff;">Open the fallback link instead</a></div>
-            </div>
-          </div>
-        `;
+        renderLaunchUnavailableScreen({
+          title: "Mirror launch is unavailable",
+          detail: "The landing page could not build a valid app launch URL for the current target.",
+          retryUrl: getLandingHomeUrl(),
+          fallbackUrl: getLastResortUrl(),
+          directUrl: buildDirectWyvernUrl(target, node.url),
+        });
       }
     }
 
     async function goToWyvern(event) {
       event?.preventDefault();
       setLaunchButtonsLoading(true);
-      const node = await resolveWyvernNode();
-      const targetUrl = node?.url || WYVERN_LAST_RESORT_NODE.url;
-      const mirrorLaunchUrl = buildPortableLandingMirrorShellUrl(targetUrl) || buildLandingMirrorShellUrl(targetUrl) || buildMirrorOpenUrl(targetUrl);
-      if (!mirrorLaunchUrl) {
-        alert("Please set WYVERN_URL first.");
+      try {
+        const target = { path: "/", search: "", hash: "" };
+        const node = await resolveWyvernNode();
+        if (!node?.url) {
+          alert("No healthy Wyvern node is responding right now. Please try again in a moment.");
+          return;
+        }
+
+        const mirrorTargetUrl = buildDirectWyvernUrl(target, node.url);
+        if (!mirrorTargetUrl) {
+          alert("The Wyvern launch URL is not configured correctly.");
+          return;
+        }
+
+        const mirrorLaunchUrl = buildPortableLandingMirrorShellUrl(mirrorTargetUrl) || buildLandingMirrorShellUrl(mirrorTargetUrl) || buildMirrorOpenUrl(mirrorTargetUrl);
+        if (!mirrorLaunchUrl) {
+          alert("The Wyvern tunnel launcher could not be created.");
+          return;
+        }
+        window.location.href = mirrorLaunchUrl;
+      } finally {
         setLaunchButtonsLoading(false);
-        return;
       }
-      window.location.href = mirrorLaunchUrl;
     }
 
     function renderMaintenanceNotice() {
@@ -1314,57 +1299,11 @@
       banner.hidden = false;
     }
 
-    function buildParallaxBackground() {
-      const bg = document.getElementById("parallax-bg");
-      if (!bg) return;
-
-      const totalWidth = window.innerWidth;
-      const totalHeight = Math.max(document.documentElement.scrollHeight, window.innerHeight * 3);
-
-      for (let i = 0; i < 28; i++) {
-        const wrap = document.createElement("div");
-        wrap.className = "bg-array-wrap";
-
-        const cols = 3 + Math.floor(Math.random() * 5);
-        const rows = 2 + Math.floor(Math.random() * 4);
-        wrap.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-        wrap.style.top = `${Math.random() * totalHeight}px`;
-        wrap.style.left = `${Math.random() * Math.max(totalWidth - 100, 60)}px`;
-
-        const leds = [];
-        for (let j = 0; j < cols * rows; j++) {
-          const led = document.createElement("div");
-          led.className = "bg-led";
-          if (Math.random() < 0.08) led.classList.add("on");
-          wrap.appendChild(led);
-          leds.push(led);
-        }
-
-        bg.appendChild(wrap);
-
-        setInterval(() => {
-          const idx = Math.floor(Math.random() * leds.length);
-          leds[idx].classList.toggle("on");
-          if (leds[idx].classList.contains("on")) {
-            setTimeout(() => leds[idx].classList.remove("on"), 1800 + Math.random() * 2600);
-          }
-        }, 1400 + Math.random() * 3200);
-      }
-
-      window.addEventListener("scroll", () => {
-        bg.style.transform = `translateY(${-window.scrollY * 0.18}px)`;
-      });
-    }
-
     function init() {
       if (isLandingMirrorShell()) {
         bootLandingMirrorShell();
         return;
       }
-
-      patchFetchMirror();
-      patchXhrMirror();
-      buildParallaxBackground();
 
       const buttons = [
         document.getElementById("goTopBtn"),

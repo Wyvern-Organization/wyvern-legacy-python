@@ -2366,6 +2366,14 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   letter-spacing: 0.8px;
   text-transform: uppercase;
 }
+.suggestion-pill {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.1);
+  color: var(--text);
+  font-size: 10px;
+  letter-spacing: 0;
+}
 .msg-pin-badge {
   display: inline-flex;
   align-items: center;
@@ -2996,6 +3004,12 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   font-family: var(--font-head);
   letter-spacing: 0.5px;
   text-transform: uppercase;
+}
+.dir-pill.suggestion-pill {
+  color: var(--text);
+  background: rgba(255,255,255,0.1);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 /* ── Loading spinner ── */
@@ -4001,7 +4015,7 @@ const users = {
   get: (id) => req('GET', `/users/${id}`),
   getPresence: (id) => req('GET', `/users/${id}/presence`),
   lookup: (query) => req('GET', `/users/lookup?q=${encodeURIComponent(query)}`),
-  directory: () => req('GET', '/users/directory'),
+  directory: ({ recommended = false } = {}) => req('GET', `/users/directory${recommended ? '?recommended=true' : ''}`),
 };
 const userCache = new Map();
 const userFetchInFlight = new Map();
@@ -4312,10 +4326,14 @@ function communityToolsEnabled() {
   return featureFlagEnabled('community_tools');
 }
 
+function directoryRecommendationsEnabled() {
+  return featureFlagEnabled('directory_recommendations');
+}
+
 // ─── Servers ──────────────────────────────────────────────────────────────────
 const servers = {
   list: () => req('GET', '/servers'),
-  directory: () => req('GET', '/servers/directory'),
+  directory: ({ recommended = false } = {}) => req('GET', `/servers/directory${recommended ? '?recommended=true' : ''}`),
   create: (name, icon = null, description = null, directoryOptIn = false) =>
     req('POST', '/servers', { name, icon, description, directory_opt_in: directoryOptIn }),
   get: (id) => req('GET', `/servers/${id}`),
@@ -6678,7 +6696,7 @@ function showUserDirectoryModal({ onOpenDm }) {
   function renderUsers() {
     const q = (search.value || '').trim().toLowerCase();
     const users = state.users.filter((user) => {
-      const label = `${displayName(user)} ${user.username}#${user.discriminator} ${user.bio || ''}`.toLowerCase();
+      const label = `${displayName(user)} ${user.username}#${user.discriminator} ${user.bio || ''} ${user.recommendation_reason || ''}`.toLowerCase();
       return !q || label.includes(q);
     });
 
@@ -6696,10 +6714,14 @@ function showUserDirectoryModal({ onOpenDm }) {
       const main = el('div', { class: 'directory-main' },
         el('div', { class: 'directory-name' },
           label,
+          user.recommendation_reason ? el('span', { class: 'dir-pill suggestion-pill', title: user.recommendation_reason }, 'Suggested') : null,
           el('span', { class: 'dir-pill' }, user.directory_opt_in ? 'Public' : 'Private'),
         ),
         el('div', { class: 'directory-meta' }, `${user.username}#${user.discriminator}`),
       );
+      if (user.recommendation_reason) {
+        main.appendChild(el('div', { class: 'directory-meta' }, user.recommendation_reason));
+      }
       if (user.bio) {
         main.appendChild(el('div', { class: 'directory-bio' }, user.bio));
       }
@@ -6738,7 +6760,7 @@ function showUserDirectoryModal({ onOpenDm }) {
 
   (async () => {
     try {
-      const usersFound = await users.directory();
+      const usersFound = await users.directory({ recommended: directoryRecommendationsEnabled() });
       state.users = (usersFound || []).filter((user) => !!user?.id);
       for (const user of state.users) {
         if (user?.id) userCache.set(user.id, user);
@@ -6779,7 +6801,7 @@ function showServerDirectoryModal({ onSelectServer }) {
     const q = (search.value || '').trim().toLowerCase();
     const entries = state.entries.filter((entry) => {
       const server = entry?.server || {};
-      const label = `${server.name || ''} ${server.description || ''}`.toLowerCase();
+      const label = `${server.name || ''} ${server.description || ''} ${entry.recommendation_reason || ''}`.toLowerCase();
       return !q || label.includes(q);
     });
 
@@ -6799,10 +6821,14 @@ function showServerDirectoryModal({ onSelectServer }) {
       const main = el('div', { class: 'directory-main' },
         el('div', { class: 'directory-name' },
           label,
+          entry.recommendation_reason ? el('span', { class: 'dir-pill suggestion-pill', title: entry.recommendation_reason }, 'Suggested') : null,
           el('span', { class: 'dir-pill' }, `${entry.member_count || 0} Members`),
         ),
         el('div', { class: 'directory-meta' }, server.description || 'No description yet.'),
       );
+      if (entry.recommendation_reason) {
+        main.appendChild(el('div', { class: 'directory-meta' }, entry.recommendation_reason));
+      }
       card.appendChild(main);
 
       const act = el('div', { class: 'directory-actions' });
@@ -6839,7 +6865,7 @@ function showServerDirectoryModal({ onSelectServer }) {
 
   (async () => {
     try {
-      state.entries = (await servers.directory()) || [];
+      state.entries = (await servers.directory({ recommended: directoryRecommendationsEnabled() })) || [];
       renderServers();
     } catch (err) {
       list.innerHTML = '';
@@ -8531,8 +8557,8 @@ function showCommunityHub(initialTab = 'discover', options = {}) {
       markLoading(true);
       try {
         const [usersResult, serversResult] = await Promise.all([
-          users.directory().catch(() => []),
-          servers.directory().catch(() => []),
+          users.directory({ recommended: directoryRecommendationsEnabled() }).catch(() => []),
+          servers.directory({ recommended: directoryRecommendationsEnabled() }).catch(() => []),
         ]);
         discoverUsers = Array.isArray(usersResult) ? usersResult : (usersResult?.items || []);
         discoverServers = Array.isArray(serversResult) ? serversResult : (serversResult?.items || []);
@@ -8733,7 +8759,7 @@ function showCommunityHub(initialTab = 'discover', options = {}) {
         const q = (userSearch.value || '').trim().toLowerCase();
         usersList.innerHTML = '';
         const filtered = userCards.filter((user) => {
-          const label = `${displayName(user)} ${user.username}#${user.discriminator} ${user.bio || ''}`.toLowerCase();
+          const label = `${displayName(user)} ${user.username}#${user.discriminator} ${user.bio || ''} ${user.recommendation_reason || ''}`.toLowerCase();
           return !q || label.includes(q);
         });
         if (!filtered.length) {
@@ -8746,8 +8772,8 @@ function showCommunityHub(initialTab = 'discover', options = {}) {
             el('div', { class: 'community-result-head' },
               avatarEl(label, 'community-result-avatar', 34, user.avatar),
               el('div', { class: 'community-result-meta' },
-                el('div', { class: 'community-result-title' }, label, el('span', { class: 'mini-pill' }, user.directory_opt_in ? 'Public' : 'Private')),
-                el('div', { class: 'community-result-subtitle' }, `${user.username}#${user.discriminator}`)
+                el('div', { class: 'community-result-title' }, label, user.recommendation_reason ? el('span', { class: 'suggestion-pill', title: user.recommendation_reason }, 'Suggested') : el('span', { class: 'mini-pill' }, user.directory_opt_in ? 'Public' : 'Private')),
+                el('div', { class: 'community-result-subtitle' }, user.recommendation_reason ? `${user.username}#${user.discriminator} • ${user.recommendation_reason}` : `${user.username}#${user.discriminator}`)
               )
             ),
             user.bio ? el('div', { class: 'community-result-content' }, user.bio) : null,
@@ -8782,7 +8808,7 @@ function showCommunityHub(initialTab = 'discover', options = {}) {
         serverList.innerHTML = '';
         const filtered = serverCards.filter((entry) => {
           const server = entry?.server || {};
-          const label = `${server.name || ''} ${server.description || ''}`.toLowerCase();
+          const label = `${server.name || ''} ${server.description || ''} ${entry.recommendation_reason || ''}`.toLowerCase();
           return !q || label.includes(q);
         });
         if (!filtered.length) {
@@ -8795,8 +8821,8 @@ function showCommunityHub(initialTab = 'discover', options = {}) {
                 el('div', { class: 'community-result-head' },
                   avatarEl(server.name || 'Server', 'community-result-avatar', 34, server.icon),
                   el('div', { class: 'community-result-meta' },
-                    el('div', { class: 'community-result-title' }, server.name || 'Server', el('span', { class: 'mini-pill' }, `${entry.member_count || 0} Members`)),
-                    el('div', { class: 'community-result-subtitle' }, server.description || 'No description yet.')
+                    el('div', { class: 'community-result-title' }, server.name || 'Server', entry.recommendation_reason ? el('span', { class: 'suggestion-pill', title: entry.recommendation_reason }, 'Suggested') : el('span', { class: 'mini-pill' }, `${entry.member_count || 0} Members`)),
+                    el('div', { class: 'community-result-subtitle' }, entry.recommendation_reason ? `${server.description || 'No description yet.'} • ${entry.recommendation_reason}` : server.description || 'No description yet.')
                   )
                 ),
                 el('div', { class: 'community-card-actions' },

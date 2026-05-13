@@ -9,6 +9,7 @@ from app.schemas.user import PresenceOut, PresenceUpdateRequest, UserMeOut, User
 from app.services.admin_allowlist import admin_allowlist_service
 from app.services.live_bridge import queue_realtime_event
 from app.services.presence import presence_service
+from app.services.recommendations import mark_public_entity_stale, recommended_user_rankings, recommendations_enabled
 from app.services.realtime import broadcast_presence_update, broadcast_public_user_update
 from app.services.sync_bridge import bump_sync_version, enqueue_upsert_event
 from app.services.usernames import generate_discriminator, username_discriminator_taken
@@ -80,6 +81,8 @@ async def update_me(
         current_user.bio = payload.bio
     if "directory_opt_in" in provided and payload.directory_opt_in is not None:
         current_user.directory_opt_in = payload.directory_opt_in
+    if provided & {"username", "display_name", "bio", "directory_opt_in"}:
+        await mark_public_entity_stale(db, "user", current_user.id)
     base_sync_version = bump_sync_version(current_user)
     await enqueue_upsert_event(db, "user", current_user, base_sync_version=base_sync_version)
     await db.commit()
@@ -130,7 +133,21 @@ async def lookup_user(
 
 
 @router.get("/directory")
-async def user_directory(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)) -> dict:
+async def user_directory(
+    recommended: bool = Query(default=False),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    if recommended and recommendations_enabled():
+        ranked_users = await recommended_user_rankings(db, current_user)
+        payload = []
+        for item in ranked_users:
+            user_payload = UserOut.model_validate(item.item).model_dump()
+            user_payload["recommendation_score"] = item.score
+            user_payload["recommendation_reason"] = item.reason
+            payload.append(user_payload)
+        return success_response(payload)
+
     result = await db.execute(
         select(User)
         .where(User.directory_opt_in.is_(True))

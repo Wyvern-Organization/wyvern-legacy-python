@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models import Channel, ChannelType, DMHiddenState, DMParticipant, User
 from app.schemas.dm import DMChannelOut, DMCreateRequest, DMParticipantOut
 from app.services.pubsub import publish_channel_event, publish_user_event
+from app.services.recommendations import TARGET_USER, record_recommendation_signal
 from app.services.sync_bridge import enqueue_upsert_event
 from app.utils.dependencies import get_current_user
 from app.utils.responses import success_response
@@ -53,8 +54,9 @@ async def create_dm_channel(
     if payload.recipient_id == current_user.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot DM yourself")
 
-    recipient = await db.execute(select(User).where(User.id == payload.recipient_id))
-    if recipient.scalar_one_or_none() is None:
+    recipient_result = await db.execute(select(User).where(User.id == payload.recipient_id))
+    recipient = recipient_result.scalar_one_or_none()
+    if recipient is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipient not found")
 
     existing = await db.execute(
@@ -76,6 +78,7 @@ async def create_dm_channel(
                 and_(DMHiddenState.channel_id == channel.id, DMHiddenState.user_id == current_user.id)
             )
         )
+        await record_recommendation_signal(db, current_user.id, TARGET_USER, recipient.id, "dm.opened", weight=1.5)
         await db.commit()
         serialized = await _serialize_dm_channel(db, channel)
         return success_response(serialized.model_dump())
@@ -102,6 +105,7 @@ async def create_dm_channel(
     await enqueue_upsert_event(db, "channel", channel, base_sync_version=0)
     for participant in participants:
         await enqueue_upsert_event(db, "dm_participant", participant, base_sync_version=0)
+    await record_recommendation_signal(db, current_user.id, TARGET_USER, recipient.id, "dm.created", weight=2.0)
 
     await db.commit()
     await db.refresh(channel)

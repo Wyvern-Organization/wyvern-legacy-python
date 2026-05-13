@@ -18,6 +18,7 @@ from app.database import engine
 from app.routers import admin, auth, channels, dms, messages, runtime, servers, sync, uploads, users, webhooks, workspaces
 from app.services.pubsub import start_pubsub_listener, stop_pubsub_listener
 from app.services.redis_client import close_redis, init_redis
+from app.services.recommendations import start_recommendation_worker, stop_recommendation_worker
 from app.services.sync_bridge import start_sync_bridge_worker, stop_sync_bridge_worker
 from app.utils.responses import error_response, success_response
 from app.websocket.handlers import websocket_endpoint
@@ -101,7 +102,9 @@ async def lifespan(_: FastAPI):
     await init_redis()
     await start_pubsub_listener()
     await start_sync_bridge_worker()
+    await start_recommendation_worker()
     yield
+    await stop_recommendation_worker()
     await stop_sync_bridge_worker()
     await stop_pubsub_listener()
     await close_redis()

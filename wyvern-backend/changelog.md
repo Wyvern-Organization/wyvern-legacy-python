@@ -1,5 +1,10 @@
 # Wyvern Changelog
 
+## 2026-05-07
+
+- Added public-only directory recommendations: the User Directory, Server Directory, and Community Hub Discover tab can now request suggested public users and servers ranked from cached recommendation signals and optional EmbeddingGemma embeddings.
+- Split directory recommendations behind a new `directory_recommendations` release flag so Edge can ship them first and Stable can promote them later.
+
 ## 2026-04-09
 
 - Pins now have their own Direct Message / Server selector and only show a channel picker when browsing a server.

@@ -32,6 +32,12 @@ DEFAULT_RELEASE_FLAGS: list[dict[str, Any]] = [
         "stable_enabled": False,
         "edge_enabled": True,
     },
+    {
+        "key": "directory_recommendations",
+        "description": "Show public directory recommendations powered by cached recommendation signals and embeddings.",
+        "stable_enabled": False,
+        "edge_enabled": True,
+    },
 ]
 
 CHANNEL_LOCKED_RELEASE_FLAGS: set[str] = {
