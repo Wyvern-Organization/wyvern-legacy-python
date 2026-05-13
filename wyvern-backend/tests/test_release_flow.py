@@ -1,9 +1,13 @@
 from types import SimpleNamespace
 
+import pytest
+from sqlalchemy.exc import IntegrityError
+
 from app.models.enums import ChannelType
 from app.services.release_flags import (
     DEFAULT_RELEASE_FLAGS,
     count_promotable_release_flags,
+    load_release_flags,
     resolve_feature_flags,
     resolve_release_channel,
 )
@@ -44,6 +48,46 @@ def test_admin_diagnostics_flag_is_edge_default_and_promotable() -> None:
     assert resolve_feature_flags(flags, "stable")[flag["key"]] is False
     assert resolve_feature_flags(flags, "edge")[flag["key"]] is True
     assert count_promotable_release_flags(flags) == 1
+
+
+@pytest.mark.asyncio
+async def test_load_release_flags_recovers_from_concurrent_default_seed() -> None:
+    seeded_flags = [SimpleNamespace(key=item["key"]) for item in DEFAULT_RELEASE_FLAGS]
+
+    class FakeResult:
+        def __init__(self, flags):
+            self._flags = flags
+
+        def scalars(self):
+            return self
+
+        def all(self):
+            return self._flags
+
+    class FakeDB:
+        def __init__(self):
+            self.execute_count = 0
+            self.rollback_count = 0
+
+        async def execute(self, _stmt):
+            self.execute_count += 1
+            return FakeResult([] if self.execute_count == 1 else seeded_flags)
+
+        def add(self, _flag):
+            pass
+
+        async def commit(self):
+            raise IntegrityError("insert release flag", {}, Exception("duplicate key"))
+
+        async def rollback(self):
+            self.rollback_count += 1
+
+    db = FakeDB()
+
+    flags = await load_release_flags(db)
+
+    assert {flag.key for flag in flags} == {item["key"] for item in DEFAULT_RELEASE_FLAGS}
+    assert db.rollback_count == 1
 
 
 def test_edge_write_allowlist() -> None:

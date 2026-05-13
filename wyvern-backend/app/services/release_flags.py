@@ -3,6 +3,7 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import desc, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -120,27 +121,37 @@ async def build_bridge_health(db: AsyncSession) -> BridgeHealthOut:
 
 
 async def load_release_flags(db: AsyncSession) -> list[ReleaseFlag]:
-    result = await db.execute(select(ReleaseFlag).order_by(ReleaseFlag.key.asc()))
-    flags = result.scalars().all()
-    existing_keys = {flag.key for flag in flags}
-    missing_defaults = [item for item in DEFAULT_RELEASE_FLAGS if item["key"] not in existing_keys]
-    if not missing_defaults:
-        return flags
+    for attempt in range(len(DEFAULT_RELEASE_FLAGS) + 1):
+        result = await db.execute(select(ReleaseFlag).order_by(ReleaseFlag.key.asc()))
+        flags = result.scalars().all()
+        existing_keys = {flag.key for flag in flags}
+        missing_defaults = [item for item in DEFAULT_RELEASE_FLAGS if item["key"] not in existing_keys]
+        if not missing_defaults:
+            return flags
 
-    now = datetime.now(tz=UTC)
-    for item in missing_defaults:
-        db.add(
-            ReleaseFlag(
-                sync_id=str(uuid4()),
-                key=item["key"],
-                description=item["description"],
-                stable_enabled=bool(item.get("stable_enabled", False)),
-                edge_enabled=bool(item.get("edge_enabled", True)),
-                updated_at=now,
-                last_promoted_at=None,
+        now = datetime.now(tz=UTC)
+        for item in missing_defaults:
+            db.add(
+                ReleaseFlag(
+                    sync_id=str(uuid4()),
+                    key=item["key"],
+                    description=item["description"],
+                    stable_enabled=bool(item.get("stable_enabled", False)),
+                    edge_enabled=bool(item.get("edge_enabled", True)),
+                    updated_at=now,
+                    last_promoted_at=None,
+                )
             )
-        )
-    await db.commit()
+        try:
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            if attempt == len(DEFAULT_RELEASE_FLAGS):
+                raise
+            continue
+
+        result = await db.execute(select(ReleaseFlag).order_by(ReleaseFlag.key.asc()))
+        return result.scalars().all()
 
     result = await db.execute(select(ReleaseFlag).order_by(ReleaseFlag.key.asc()))
     return result.scalars().all()
