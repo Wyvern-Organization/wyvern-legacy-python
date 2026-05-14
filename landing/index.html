@@ -928,11 +928,12 @@
     const level = null; // Allowed values: null, "low", "medium", "major"
     const est_time = null;
     const message = null; // Optional additional message to display
-    const WYVERN_NUBU_CLOUDFLARE_URL = "https://loans-incident-returned-endangered.trycloudflare.com";
-    const WYVERN_NUBU_FALLBACK_URL = "https://39ncgxx0-8009.use.devtunnels.ms";
-    const WYVERN_ASPC_URL = "https://cartridges-twins-primarily-resort.trycloudflare.com";
+    const WYVERN_NUBU_CLOUDFLARE_URL = "https://cole-vote-jewel-tap.trycloudflare.com";
+    const WYVERN_NUBU_FALLBACK_URL = "https://nb4g2lmm-8000.usw2.devtunnels.ms";
+    const WYVERN_ASPC_FALLBACK_URL = "https://39ncgxx0-8009.use.devtunnels.ms";
+    const WYVERN_ASPC_URL = "https://loans-incident-returned-endangered.trycloudflare.com";
     const WYVERN_NUBU_URL = WYVERN_NUBU_CLOUDFLARE_URL || WYVERN_NUBU_FALLBACK_URL;
-    const FALLBACK_URL = `${WYVERN_NUBU_FALLBACK_URL}/`;
+    const FALLBACK_URL = `${(WYVERN_ASPC_FALLBACK_URL || WYVERN_NUBU_FALLBACK_URL)}/`;
     const WYVERN_URL = WYVERN_ASPC_URL;
     const WYVERN_NODES = [
       { name: "ASPC", url: WYVERN_ASPC_URL, priority: 10 },
