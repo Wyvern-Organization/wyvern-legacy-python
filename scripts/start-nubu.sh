@@ -4,10 +4,17 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_DIR="$ROOT_DIR/wyvern-backend"
 RUNTIME_DIR="$ROOT_DIR/runtime"
-HEALTH_URL="http://127.0.0.1:8000/health"
 CF_LOG="$RUNTIME_DIR/nubu-cloudflared.log"
 CF_ERR="$RUNTIME_DIR/nubu-cloudflared.err"
 DT_LOG="$RUNTIME_DIR/nubu-devtunnel.log"
+
+HOST_PORT="${WYVERN_HOST_PORT:-}"
+if [[ -z "$HOST_PORT" && -f "$APP_DIR/.env" ]]; then
+  HOST_PORT="$(awk -F= '/^WYVERN_HOST_PORT=/{print $2}' "$APP_DIR/.env" | tail -n 1 | tr -d '\r' || true)"
+fi
+HOST_PORT="${HOST_PORT:-8009}"
+LOCAL_URL="http://127.0.0.1:${HOST_PORT}"
+HEALTH_URL="${LOCAL_URL}/health"
 
 mkdir -p "$RUNTIME_DIR"
 
@@ -42,8 +49,8 @@ for _ in $(seq 1 30); do
 done
 
 if [[ -x "$HOME/.local/bin/cloudflared" ]]; then
-  if ! pgrep -af 'cloudflared tunnel --url http://127.0.0.1:8000' >/dev/null 2>&1; then
-    nohup "$HOME/.local/bin/cloudflared" tunnel --url http://127.0.0.1:8000 --no-autoupdate --loglevel info >"$CF_LOG" 2>"$CF_ERR" &
+  if ! pgrep -af "cloudflared tunnel --url ${LOCAL_URL}" >/dev/null 2>&1; then
+    nohup "$HOME/.local/bin/cloudflared" tunnel --url "$LOCAL_URL" --no-autoupdate --loglevel info >"$CF_LOG" 2>"$CF_ERR" &
     echo "Started cloudflared tunnel for nubu."
   else
     echo "cloudflared tunnel for nubu is already running."
@@ -53,8 +60,8 @@ else
 fi
 
 if [[ -x "$HOME/.local/bin/devtunnel" ]]; then
-  if ! pgrep -af 'devtunnel host wyvern-nubu.usw2' >/dev/null 2>&1; then
-    nohup "$HOME/.local/bin/devtunnel" host wyvern-nubu.usw2 >"$DT_LOG" 2>&1 &
+  if ! pgrep -af "devtunnel host .* -p ${HOST_PORT}" >/dev/null 2>&1; then
+    nohup "$HOME/.local/bin/devtunnel" host -p "$HOST_PORT" --allow-anonymous >"$DT_LOG" 2>&1 &
     echo "Started Code Tunnel fallback for nubu."
   else
     echo "Code Tunnel fallback is already running."
@@ -69,6 +76,20 @@ if [[ -f "$CF_LOG" ]]; then
   CF_URL="$(grep -oE 'https://[A-Za-z0-9.-]+trycloudflare\.com' "$CF_LOG" | tail -n 1 || true)"
   if [[ -n "${CF_URL:-}" ]]; then
     echo "Cloudflared URL: $CF_URL"
+  fi
+fi
+
+if [[ -f "$CF_ERR" ]]; then
+  CF_URL="$(grep -oE 'https://[A-Za-z0-9.-]+trycloudflare\.com' "$CF_ERR" | tail -n 1 || true)"
+  if [[ -n "${CF_URL:-}" ]]; then
+    echo "Cloudflared URL: $CF_URL"
+  fi
+fi
+
+if [[ -f "$DT_LOG" ]]; then
+  DT_URL="$(grep -oE 'https://[A-Za-z0-9.-]+\.devtunnels\.ms/?' "$DT_LOG" | tail -n 1 || true)"
+  if [[ -n "${DT_URL:-}" ]]; then
+    echo "Code Tunnel URL: $DT_URL"
   fi
 fi
 
