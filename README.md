@@ -9,3 +9,7 @@ Wyvern is currently a web-based Discord Alternative that is semi open-source, an
 
 The ASPC launcher starts the backend on port `8009` and brings up its Cloudflared tunnel.
 The Nubu launcher starts the backend on port `8000`, then starts Cloudflared first and the Code Tunnels fallback alongside it.
+
+
+AG:
+## yes, the server thing might have been an overreaction, and im sorry for that
