@@ -13,3 +13,4 @@ The Nubu launcher starts the backend on port `8000`, then starts Cloudflared fir
 
 AG:
 ## yes, the server thing might have been an overreaction, and im sorry for that
+but i genuenly was mad that you never respected my descitions as a co-founder of wyvern. things like this have already happened multiple times eith us so i guess this is goodbye.
