@@ -764,7 +764,7 @@
           <a class="btn btn-ghost" href="https://forms.gle/xqedz4wNVDDsv2geA" target="_blank" rel="noreferrer noopener">Volunteer Application</a>
         </div>
         <p class="launch-help">
-          Not working? Try clicking <a id="fallbackLink" href="https://39ncgxx0-8009.use.devtunnels.ms/" target="_blank" rel="noreferrer noopener" title="Use this only if the main link does not work.">here</a>. This fallback can be janky, or it may load the page very slowly or feel unresponsive.
+          The app now lives at <a href="https://app.wyvernhub.net/" target="_blank" rel="noreferrer noopener">app.wyvernhub.net</a>.
         </p>
       </div>
 
@@ -928,350 +928,11 @@
     const level = null; // Allowed values: null, "low", "medium", "major"
     const est_time = null;
     const message = null; // Optional additional message to display
-    const WYVERN_NUBU_CLOUDFLARE_URL = "https://cole-vote-jewel-tap.trycloudflare.com";
-    const WYVERN_NUBU_FALLBACK_URL = "https://nb4g2lmm-8000.usw2.devtunnels.ms";
-    const WYVERN_ASPC_FALLBACK_URL = "https://39ncgxx0-8009.use.devtunnels.ms";
-    const WYVERN_ASPC_URL = "https://loans-incident-returned-endangered.trycloudflare.com";
-    const WYVERN_NUBU_URL = WYVERN_NUBU_CLOUDFLARE_URL || WYVERN_NUBU_FALLBACK_URL;
-    const FALLBACK_URL = `${(WYVERN_ASPC_FALLBACK_URL || WYVERN_NUBU_FALLBACK_URL)}/`;
-    const WYVERN_URL = WYVERN_ASPC_URL;
-    const WYVERN_NODES = [
-      { name: "ASPC", url: WYVERN_ASPC_URL, priority: 10 },
-      { name: "nubu", url: WYVERN_NUBU_CLOUDFLARE_URL, priority: 20 },
-    ].filter((node) => Boolean(node.url));
-    const NODE_HEALTH_TIMEOUT_MS = 1200;
-    const IFRAME_BOOT_TIMEOUT_MS = 8000;
-    let wyvernNodePromise = null;
-    const WYVERN_EMBED_VERSION = "2026-04-05-giphy";
-    const MIRROR_BASE = "/mirror";
-    const LANDING_MIRROR_BASE = "/landing/mirror";
-    const LANDING_MIRROR_QUERY_PARAM = "mirror";
+    const WYVERN_APP_URL = "https://app.wyvernhub.net/";
 
-    function normalizeUrl(input) {
-      try {
-        return new URL(input, window.location.origin);
-      } catch {
-        return null;
-      }
-    }
-
-    function buildMirrorOpenUrl(input) {
-      const urlObj = normalizeUrl(input);
-      if (!urlObj) return null;
-      const path = urlObj.pathname === "/" ? "/" : urlObj.pathname;
-      return `${window.location.origin}${MIRROR_BASE}${path}${urlObj.search}${urlObj.hash}`;
-    }
-
-    function buildLandingMirrorShellUrl(input) {
-      const urlObj = normalizeUrl(input);
-      if (!urlObj) return null;
-      const path = urlObj.pathname === "/" ? "/" : urlObj.pathname;
-      const shellPath = path === "/" ? `${LANDING_MIRROR_BASE}/` : `${LANDING_MIRROR_BASE}${path}`;
-      return `${window.location.origin}${shellPath}${urlObj.search}${urlObj.hash}`;
-    }
-
-    function buildPortableLandingMirrorShellUrl(input) {
-      const urlObj = normalizeUrl(input);
-      if (!urlObj) return null;
-
-      const shellUrl = new URL(window.location.href);
-      shellUrl.pathname = getLandingEntryPath();
-      shellUrl.search = "";
-      shellUrl.hash = "";
-      const path = urlObj.pathname === "/" ? "/" : urlObj.pathname;
-      shellUrl.searchParams.set(LANDING_MIRROR_QUERY_PARAM, `${path}${urlObj.search}${urlObj.hash}`);
-      return shellUrl.toString();
-    }
-
-    function getLandingEntryPath() {
-      const pathname = window.location.pathname || "/";
-      if (pathname === "/landing" || pathname === "/landing/" || pathname.startsWith("/landing/mirror")) {
-        return "/landing/";
-      }
-      return pathname;
-    }
-
-    function getConfiguredWyvernBaseUrl(baseUrlOverride = null) {
-      return normalizeUrl(baseUrlOverride || WYVERN_URL);
-    }
-
-    function getLastResortUrl() {
-      return normalizeUrl(FALLBACK_URL)?.toString() || null;
-    }
-
-    function getWyvernHealthUrl(node) {
-      const baseUrl = normalizeUrl(node?.url);
-      if (!baseUrl) return null;
-      baseUrl.pathname = "/health";
-      baseUrl.search = "";
-      baseUrl.hash = "";
-      return baseUrl.toString();
-    }
-
-    async function probeWyvernNode(node) {
-      const healthUrl = getWyvernHealthUrl(node);
-      if (!healthUrl) return null;
-
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), NODE_HEALTH_TIMEOUT_MS);
-      const startedAt = performance.now();
-      try {
-        const response = await fetch(healthUrl, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        if (!response.ok) return null;
-        const payload = await response.json().catch(() => ({}));
-        if (payload?.mode === "indexing") return null;
-        return {
-          ...node,
-          latency: performance.now() - startedAt,
-        };
-      } catch {
-        return null;
-      } finally {
-        window.clearTimeout(timeout);
-      }
-    }
-
-    async function resolveWyvernNode() {
-      if (!wyvernNodePromise) {
-        wyvernNodePromise = (async () => {
-          const orderedNodes = [...WYVERN_NODES].sort((a, b) => a.priority - b.priority);
-          const healthyNodes = (await Promise.all(orderedNodes.map((node) => probeWyvernNode(node))))
-            .filter(Boolean)
-            .sort((a, b) => (a.priority - b.priority) || (a.latency - b.latency));
-          return healthyNodes[0] || null;
-        })()
-          .finally(() => {
-            window.setTimeout(() => {
-              wyvernNodePromise = null;
-            }, 30000);
-          });
-      }
-      return wyvernNodePromise;
-    }
-
-    function setLaunchButtonsLoading(isLoading) {
-      const buttonIds = ["goTopBtn", "goHeroBtn", "goPreviewBtn", "goJoinBtn"];
-      for (const id of buttonIds) {
-        const button = document.getElementById(id);
-        if (!button) continue;
-        button.disabled = isLoading;
-        button.dataset.readyLabel = button.dataset.readyLabel || button.textContent;
-        button.textContent = isLoading ? "Finding Node..." : button.dataset.readyLabel;
-      }
-    }
-
-    function parseMirrorTargetSpec(spec) {
-      if (!spec) return null;
-      try {
-        const target = /^https?:\/\//i.test(spec)
-          ? new URL(spec)
-          : new URL(spec.startsWith("/") || spec.startsWith("?") || spec.startsWith("#") ? spec : `/${spec}`, "https://wyvern.local");
-        return {
-          path: target.pathname || "/",
-          search: target.search || "",
-          hash: target.hash || "",
-        };
-      } catch {
-        return null;
-      }
-    }
-
-    function buildConfiguredWyvernTargetUrl(target, baseUrlOverride = null, options = {}) {
-      const baseUrl = getConfiguredWyvernBaseUrl(baseUrlOverride);
-      if (!baseUrl || !target) return null;
-      const { includeEmbedVersion = true } = options;
-
-      const url = new URL(baseUrl.toString());
-      const basePath = url.pathname && url.pathname !== "/" ? url.pathname.replace(/\/$/, "") : "";
-      const targetPath = target.path && target.path !== "/" ? target.path : "";
-      url.pathname = `${basePath}${targetPath}` || "/";
-      url.search = target.search || "";
-      url.hash = target.hash || "";
-      if (includeEmbedVersion) {
-        url.searchParams.set("_landing_embed_v", WYVERN_EMBED_VERSION);
-      }
-      return url.toString();
-    }
-
-    function buildDirectWyvernUrl(target, baseUrlOverride = null) {
-      return buildConfiguredWyvernTargetUrl(target, baseUrlOverride, { includeEmbedVersion: false });
-    }
-
-    function isLandingMirrorShell() {
-      const params = new URLSearchParams(window.location.search);
-      return params.has(LANDING_MIRROR_QUERY_PARAM) || window.location.pathname === "/landing/mirror" || window.location.pathname.startsWith("/landing/mirror/");
-    }
-
-    function getLandingMirrorTarget() {
-      const params = new URLSearchParams(window.location.search);
-      const queryTarget = parseMirrorTargetSpec(params.get(LANDING_MIRROR_QUERY_PARAM));
-      if (queryTarget) return queryTarget;
-
-      const rawPath = window.location.pathname.replace(/^\/landing\/mirror/, "");
-      const path = !rawPath ? "/" : rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
-      return {
-        path,
-        search: window.location.search,
-        hash: window.location.hash,
-      };
-    }
-
-    function getLandingHomeUrl() {
-      const landingUrl = new URL(window.location.href);
-      landingUrl.pathname = getLandingEntryPath();
-      landingUrl.search = "";
-      landingUrl.hash = "";
-      return landingUrl.toString();
-    }
-
-    function renderLaunchUnavailableScreen({ title, detail, retryUrl, fallbackUrl, directUrl }) {
-      const actions = [
-        retryUrl ? `<a href="${retryUrl}" style="display:inline-flex;align-items:center;justify-content:center;min-width:150px;height:42px;padding:0 18px;border-radius:6px;background:rgba(0,200,255,0.14);color:#00c8ff;text-decoration:none;font-weight:600;">Back to landing</a>` : "",
-        directUrl ? `<a href="${directUrl}" style="display:inline-flex;align-items:center;justify-content:center;min-width:150px;height:42px;padding:0 18px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.88);text-decoration:none;font-weight:600;">Open app directly</a>` : "",
-        fallbackUrl ? `<a href="${fallbackUrl}" target="_blank" rel="noreferrer noopener" style="display:inline-flex;align-items:center;justify-content:center;min-width:150px;height:42px;padding:0 18px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.88);text-decoration:none;font-weight:600;">Try fallback link</a>` : "",
-      ].filter(Boolean).join("");
-
-      document.body.innerHTML = `
-        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:Inter,sans-serif;padding:24px;">
-          <div style="max-width:560px;text-align:center;">
-            <div style="font-family:Orbitron,sans-serif;letter-spacing:1.6px;font-size:12px;color:#00c8ff;text-transform:uppercase;">Wyvern Status</div>
-            <div style="margin-top:14px;font-size:24px;font-weight:700;color:#ffffff;">${title}</div>
-            <div style="margin-top:10px;font-size:14px;line-height:1.7;color:rgba(255,255,255,0.7);">${detail}</div>
-            <div style="margin-top:22px;display:flex;flex-wrap:wrap;justify-content:center;gap:12px;">${actions}</div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderIframeMirrorShell(target, baseUrlOverride = null) {
-      const iframeUrl = buildConfiguredWyvernTargetUrl(target, baseUrlOverride);
-      if (!iframeUrl) return null;
-
-      document.body.innerHTML = "";
-      document.body.style.margin = "0";
-      document.body.style.background = "#000";
-
-      const wrap = document.createElement("div");
-      wrap.style.cssText = "position:fixed;inset:0;background:#000;";
-
-      const frame = document.createElement("iframe");
-      frame.src = iframeUrl;
-      frame.title = "Wyvern";
-      frame.setAttribute("allow", "autoplay; camera; microphone; clipboard-read; clipboard-write; display-capture; fullscreen");
-      frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-      frame.style.cssText = "width:100%;height:100%;border:0;background:#000;display:block;";
-
-      const status = document.createElement("div");
-      status.style.cssText = "position:fixed;inset:auto 16px 16px 16px;z-index:10;display:flex;justify-content:center;pointer-events:none;";
-      status.innerHTML = `
-        <div style="max-width:520px;padding:14px 16px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(0,0,0,0.82);color:rgba(255,255,255,0.88);font-family:Inter,sans-serif;font-size:13px;line-height:1.6;pointer-events:auto;">
-          Connecting to Wyvern...
-        </div>
-      `;
-
-      const directUrl = buildDirectWyvernUrl(target, baseUrlOverride);
-      const fallbackUrl = getLastResortUrl();
-      const timeout = window.setTimeout(() => {
-        status.innerHTML = `
-          <div style="max-width:560px;padding:16px 18px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(0,0,0,0.86);color:rgba(255,255,255,0.88);font-family:Inter,sans-serif;font-size:13px;line-height:1.6;pointer-events:auto;">
-            <div style="font-family:Orbitron,sans-serif;letter-spacing:1px;font-size:11px;color:#00c8ff;text-transform:uppercase;">Connection Slow</div>
-            <div style="margin-top:8px;">Wyvern is taking longer than expected to respond. You can keep waiting, go back to the landing page, or open the app target directly.</div>
-            <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;">
-              <a href="${getLandingHomeUrl()}" style="display:inline-flex;align-items:center;justify-content:center;min-width:138px;height:38px;padding:0 16px;border-radius:6px;background:rgba(0,200,255,0.14);color:#00c8ff;text-decoration:none;font-weight:600;">Back to landing</a>
-              ${directUrl ? `<a href="${directUrl}" style="display:inline-flex;align-items:center;justify-content:center;min-width:138px;height:38px;padding:0 16px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.88);text-decoration:none;font-weight:600;">Open directly</a>` : ""}
-              ${fallbackUrl ? `<a href="${fallbackUrl}" target="_blank" rel="noreferrer noopener" style="display:inline-flex;align-items:center;justify-content:center;min-width:138px;height:38px;padding:0 16px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.88);text-decoration:none;font-weight:600;">Try fallback</a>` : ""}
-            </div>
-          </div>
-        `;
-      }, IFRAME_BOOT_TIMEOUT_MS);
-
-      frame.addEventListener("load", () => {
-        window.clearTimeout(timeout);
-        status.remove();
-      });
-
-      frame.addEventListener("error", () => {
-        window.clearTimeout(timeout);
-        renderLaunchUnavailableScreen({
-          title: "Wyvern could not be loaded here",
-          detail: "The embedded app did not start correctly. Opening the app directly is usually more reliable while temporary tunnel URLs are rotating.",
-          retryUrl: getLandingHomeUrl(),
-          fallbackUrl,
-          directUrl,
-        });
-      });
-
-      wrap.appendChild(frame);
-      document.body.appendChild(wrap);
-      document.body.appendChild(status);
-      return iframeUrl;
-    }
-
-    async function bootLandingMirrorShell() {
-      const target = getLandingMirrorTarget();
-
-      document.body.innerHTML = `
-        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:Inter,sans-serif;">
-          <div style="text-align:center;">
-            <div style="font-family:Orbitron,sans-serif;letter-spacing:1px;font-size:12px;color:rgba(255,255,255,0.72);text-transform:uppercase;">Wyvern Mirror</div>
-            <div style="margin-top:10px;font-size:14px;color:rgba(255,255,255,0.88);">Loading mirrored app content...</div>
-          </div>
-        </div>
-      `;
-
-      const node = await resolveWyvernNode();
-      if (!node?.url) {
-        renderLaunchUnavailableScreen({
-          title: "Wyvern is temporarily unavailable",
-          detail: "None of the configured app nodes responded to a health check just now, so the launcher stopped before sending you into a black screen.",
-          retryUrl: getLandingHomeUrl(),
-          fallbackUrl: getLastResortUrl(),
-          directUrl: null,
-        });
-        return;
-      }
-
-      const iframeUrl = renderIframeMirrorShell(target, node.url);
-      if (!iframeUrl) {
-        renderLaunchUnavailableScreen({
-          title: "Mirror launch is unavailable",
-          detail: "The landing page could not build a valid app launch URL for the current target.",
-          retryUrl: getLandingHomeUrl(),
-          fallbackUrl: getLastResortUrl(),
-          directUrl: buildDirectWyvernUrl(target, node.url),
-        });
-      }
-    }
-
-    async function goToWyvern(event) {
+    function goToWyvern(event) {
       event?.preventDefault();
-      setLaunchButtonsLoading(true);
-      try {
-        const target = { path: "/", search: "", hash: "" };
-        const node = await resolveWyvernNode();
-        if (!node?.url) {
-          alert("No healthy Wyvern node is responding right now. Please try again in a moment.");
-          return;
-        }
-
-        const mirrorTargetUrl = buildDirectWyvernUrl(target, node.url);
-        if (!mirrorTargetUrl) {
-          alert("The Wyvern launch URL is not configured correctly.");
-          return;
-        }
-
-        const mirrorLaunchUrl = buildPortableLandingMirrorShellUrl(mirrorTargetUrl) || buildLandingMirrorShellUrl(mirrorTargetUrl) || buildMirrorOpenUrl(mirrorTargetUrl);
-        if (!mirrorLaunchUrl) {
-          alert("The Wyvern tunnel launcher could not be created.");
-          return;
-        }
-        window.location.href = mirrorLaunchUrl;
-      } finally {
-        setLaunchButtonsLoading(false);
-      }
+      window.location.assign(WYVERN_APP_URL);
     }
 
     function renderMaintenanceNotice() {
@@ -1295,17 +956,12 @@
       details.textContent = message
         ? String(message)
         : est_time
-          ? `Estimated time: ${est_time}. Use the fallback link below only if the main link does not work.`
-          : "Estimated time: unavailable. Use the fallback link below only if the main link does not work.";
+          ? `Estimated time: ${est_time}. Use the app button above if the main link does not work.`
+          : "Estimated time: unavailable. Use the app button above if the main link does not work.";
       banner.hidden = false;
     }
 
     function init() {
-      if (isLandingMirrorShell()) {
-        bootLandingMirrorShell();
-        return;
-      }
-
       const buttons = [
         document.getElementById("goTopBtn"),
         document.getElementById("goHeroBtn"),
@@ -1323,11 +979,6 @@
           const target = document.getElementById("experience");
           if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
         });
-      }
-
-      const fallbackLink = document.getElementById("fallbackLink");
-      if (fallbackLink) {
-        fallbackLink.href = FALLBACK_URL;
       }
 
       renderMaintenanceNotice();
