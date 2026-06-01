@@ -242,7 +242,7 @@ async def health_check() -> JSONResponse:
 async def serve_index() -> FileResponse:
     if not INDEX_FILE.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="index.html not found")
-    return FileResponse(INDEX_FILE)
+    return FileResponse(INDEX_FILE, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/invite/{code}", include_in_schema=False)
@@ -250,7 +250,7 @@ async def serve_invite_index(code: str) -> FileResponse:
     _ = code
     if not INDEX_FILE.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="index.html not found")
-    return FileResponse(INDEX_FILE)
+    return FileResponse(INDEX_FILE, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/edge", include_in_schema=False)
@@ -262,7 +262,7 @@ async def serve_edge_index(path: str = "") -> FileResponse:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edge Mode is not enabled")
     if not INDEX_FILE.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="index.html not found")
-    return FileResponse(INDEX_FILE)
+    return FileResponse(INDEX_FILE, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/admin", include_in_schema=False)
