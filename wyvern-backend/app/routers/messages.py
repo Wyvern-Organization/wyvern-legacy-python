@@ -28,7 +28,7 @@ from app.services.community import record_server_activity
 from app.services.pubsub import publish_channel_event
 from app.services.rate_limiter import rate_limiter
 from app.services.sync_bridge import bump_sync_version, enqueue_delete_event, enqueue_upsert_event
-from app.utils.dependencies import get_current_user
+from app.utils.dependencies import get_current_active_user
 from app.utils.responses import success_response
 
 
@@ -114,6 +114,7 @@ def _serialize_reply_preview(message: Message | None) -> MessageReplyPreviewOut 
         attachments=list(message.attachments or []),
         created_at=message.created_at,
         edited_at=message.edited_at,
+        is_nsfw=bool(getattr(message, "is_nsfw", False)),
     )
 
 
@@ -157,6 +158,7 @@ def _serialize_message(message: Message, *, bookmarked_by_me: bool = False) -> d
         created_at=message.created_at,
         edited_at=message.edited_at,
         is_pinned=bool(getattr(message, "is_pinned", False)),
+        is_nsfw=bool(getattr(message, "is_nsfw", False)),
         webhook_name=getattr(message, "webhook_name", None),
         webhook_avatar=getattr(message, "webhook_avatar", None),
         bookmarked_by_me=bookmarked_by_me,
@@ -249,7 +251,7 @@ async def send_message(
     channel_id: str,
     payload: MessageCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     await rate_limiter.check(
         key_prefix="messages",
@@ -282,6 +284,7 @@ async def send_message(
         reply_to_id=reply_to_id,
         content=payload.content,
         attachments=payload.attachments,
+        is_nsfw=payload.is_nsfw,
     )
     db.add(message)
     await db.flush()
@@ -314,7 +317,7 @@ async def get_message_history(
     cursor: str | None = Query(default=None, description="Return messages before the encoded created_at/id cursor"),
     limit: int = Query(default=50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     channel = await get_channel_or_404(db, channel_id)
     await ensure_channel_access(db, channel, current_user.id)
@@ -369,7 +372,7 @@ async def search_messages(
     created_after: date | None = Query(default=None),
     limit: int = Query(default=25, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     channel_ids, _server_scope = await _resolve_channel_scope(
         db,
@@ -468,7 +471,7 @@ async def search_messages(
 async def list_pinned_messages(
     channel_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     channel = await get_channel_or_404(db, channel_id)
     await ensure_channel_access(db, channel, current_user.id)
@@ -492,7 +495,7 @@ async def list_pinned_messages(
 async def pin_message(
     message_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     message = await get_message_or_404(db, message_id)
     channel = await get_channel_or_404(db, message.channel_id)
@@ -527,7 +530,7 @@ async def pin_message(
 async def unpin_message(
     message_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     message = await get_message_or_404(db, message_id)
     channel = await get_channel_or_404(db, message.channel_id)
@@ -561,7 +564,7 @@ async def unpin_message(
 @router.get("/bookmarks")
 async def list_bookmarks(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     result = await db.execute(
         select(MessageBookmark)
@@ -590,7 +593,7 @@ async def list_bookmarks(
 async def bookmark_message(
     message_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     message = await get_message_or_404(db, message_id)
     channel = await get_channel_or_404(db, message.channel_id)
@@ -628,7 +631,7 @@ async def bookmark_message(
 async def unbookmark_message(
     message_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     message = await get_message_or_404(db, message_id)
     channel = await get_channel_or_404(db, message.channel_id)
@@ -664,7 +667,7 @@ async def edit_message(
     message_id: str,
     payload: MessageUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     message = await get_message_or_404(db, message_id)
     channel = await get_channel_or_404(db, message.channel_id)
@@ -702,7 +705,7 @@ async def edit_message(
 async def delete_message(
     message_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     message = await get_message_or_404(db, message_id)
     channel = await get_channel_or_404(db, message.channel_id)
@@ -739,7 +742,7 @@ async def add_reaction(
     message_id: str,
     payload: ReactionPayload,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     message = await get_message_or_404(db, message_id)
     channel = await get_channel_or_404(db, message.channel_id)
@@ -782,7 +785,7 @@ async def remove_reaction(
     message_id: str,
     emoji: str = Query(..., min_length=1, max_length=64),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     message = await get_message_or_404(db, message_id)
     channel = await get_channel_or_404(db, message.channel_id)

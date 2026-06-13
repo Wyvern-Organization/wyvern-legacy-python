@@ -10,6 +10,7 @@ class MessageCreate(BaseModel):
     content: str = Field(default="", max_length=4000)
     attachments: list[str] = Field(default_factory=list, max_length=MAX_ATTACHMENTS)
     reply_to_id: str | None = None
+    is_nsfw: bool = False
 
     @field_validator("attachments")
     @classmethod
@@ -33,6 +34,7 @@ class MessageOut(BaseModel):
     created_at: datetime
     edited_at: datetime | None
     is_pinned: bool = False
+    is_nsfw: bool = False
     webhook_name: str | None = None
     webhook_avatar: str | None = None
     bookmarked_by_me: bool = False
@@ -47,6 +49,7 @@ class MessageReplyPreviewOut(BaseModel):
     attachments: list[str]
     created_at: datetime
     edited_at: datetime | None = None
+    is_nsfw: bool = False
 
 
 class MessageReactionOut(BaseModel):

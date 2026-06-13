@@ -1,10 +1,10 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func, text
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.models.json_types import json_value_type
 from app.models.sync import SyncMixin
 from app.services.ids import ID_COLUMN_LENGTH, generate_entity_id
 
@@ -41,9 +41,9 @@ class ReleasePromotionAudit(Base):
     legacy_promoted_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     promoted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     promoted_flag_keys: Mapped[list[str]] = mapped_column(
-        JSONB,
+        json_value_type,
         nullable=False,
         default=list,
-        server_default=text("'[]'::jsonb"),
+        server_default=text("'[]'"),
     )
-    stable_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    stable_snapshot: Mapped[dict | None] = mapped_column(json_value_type, nullable=True)

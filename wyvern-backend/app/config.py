@@ -1,4 +1,6 @@
 from functools import lru_cache
+import base64
+from hashlib import sha256
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -26,6 +28,11 @@ class Settings(BaseSettings):
     sync_bridge_poll_interval_seconds: float = 2.0
     sync_bridge_request_timeout_seconds: float = 10.0
     sync_bridge_resync_interval_seconds: float = 300.0
+    wyv_public_base_url: str | None = None
+    wyv_shared_secret: str | None = None
+    wyv_handoff_ttl_seconds: int = 120
+    ollama_base_url: str = "http://ollama:11434"
+    openai_token_encryption_key: str | None = None
 
     jwt_secret_key: str = Field(validation_alias=AliasChoices("JWT_SECRET_KEY", "jwt_secret_key"))
     jwt_algorithm: str = "HS256"
@@ -134,6 +141,38 @@ class Settings(BaseSettings):
             return None
         return normalized.rstrip("/")
 
+    @field_validator("wyv_public_base_url", mode="before")
+    @classmethod
+    def normalize_wyv_public_base_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            return None
+        parsed = urlsplit(normalized)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("WYV_PUBLIC_BASE_URL must be an http(s) URL")
+        return normalized.rstrip("/")
+
+    @field_validator("ollama_base_url", mode="before")
+    @classmethod
+    def normalize_ollama_base_url(cls, value: str) -> str:
+        normalized = (value or "http://ollama:11434").strip()
+        if not normalized:
+            normalized = "http://ollama:11434"
+        parsed = urlsplit(normalized)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("OLLAMA_BASE_URL must be an http(s) URL")
+        return normalized.rstrip("/")
+
+    @field_validator("openai_token_encryption_key", mode="before")
+    @classmethod
+    def normalize_openai_token_encryption_key(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = str(value).strip()
+        return normalized or None
+
     @field_validator("giphy_api_key", mode="before")
     @classmethod
     def normalize_giphy_api_key(cls, value: str | None) -> str | None:
@@ -145,6 +184,14 @@ class Settings(BaseSettings):
     @field_validator("sync_shared_secret", mode="before")
     @classmethod
     def normalize_sync_shared_secret(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = str(value).strip()
+        return normalized or None
+
+    @field_validator("wyv_shared_secret", mode="before")
+    @classmethod
+    def normalize_wyv_shared_secret(cls, value: str | None) -> str | None:
         if value is None:
             return None
         normalized = str(value).strip()
@@ -216,6 +263,11 @@ class Settings(BaseSettings):
         if not media_dir.is_absolute():
             media_dir = project_root / media_dir
         return media_dir
+
+    def resolve_openai_token_encryption_key(self) -> str:
+        key_material = self.openai_token_encryption_key or self.jwt_secret_key
+        digest = sha256(key_material.encode("utf-8")).digest()
+        return base64.urlsafe_b64encode(digest).decode("ascii")
 
 
 @lru_cache

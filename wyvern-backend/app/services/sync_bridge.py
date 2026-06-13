@@ -315,6 +315,7 @@ def _serialize_message_for_ws(message: Message) -> dict[str, Any]:
         attachments=list(message.attachments or []),
         created_at=message.created_at,
         edited_at=message.edited_at,
+        is_nsfw=bool(getattr(message, "is_nsfw", False)),
         reply_to=_serialize_reply_preview(message.reply_to),
         reactions=_serialize_reactions(message),
     ).model_dump(mode="json")
@@ -357,6 +358,13 @@ async def _serialize_user(_: AsyncSession, user: User) -> dict[str, Any]:
         "directory_opt_in": user.directory_opt_in,
         "email": user.email,
         "avatar": user.avatar,
+        "accepted_terms_version": user.accepted_terms_version,
+        "accepted_privacy_version": user.accepted_privacy_version,
+        "legal_accepted_at": user.legal_accepted_at,
+        "ai_opt_in": user.ai_opt_in,
+        "ai_opt_in_updated_at": user.ai_opt_in_updated_at,
+        "nsfw_18_verified": user.nsfw_18_verified,
+        "nsfw_18_verified_at": user.nsfw_18_verified_at,
         "created_at": user.created_at,
     }
 
@@ -449,6 +457,7 @@ async def _serialize_message(db: AsyncSession, message: Message) -> dict[str, An
         "reply_to_sync_id": reply_sync_id,
         "content": message.content,
         "attachments": list(message.attachments or []),
+        "is_nsfw": bool(getattr(message, "is_nsfw", False)),
         "created_at": message.created_at,
         "edited_at": message.edited_at,
     }
@@ -583,6 +592,13 @@ def create_edge_handoff_grant(user: User) -> tuple[str, datetime]:
             "bio": user.bio,
             "directory_opt_in": user.directory_opt_in,
             "avatar": user.avatar,
+            "accepted_terms_version": user.accepted_terms_version,
+            "accepted_privacy_version": user.accepted_privacy_version,
+            "legal_accepted_at": user.legal_accepted_at.astimezone(UTC).isoformat() if user.legal_accepted_at else None,
+            "ai_opt_in": user.ai_opt_in,
+            "ai_opt_in_updated_at": user.ai_opt_in_updated_at.astimezone(UTC).isoformat() if user.ai_opt_in_updated_at else None,
+            "nsfw_18_verified": user.nsfw_18_verified,
+            "nsfw_18_verified_at": user.nsfw_18_verified_at.astimezone(UTC).isoformat() if user.nsfw_18_verified_at else None,
             "created_at": user.created_at.astimezone(UTC).isoformat() if user.created_at else None,
         },
     }
@@ -717,6 +733,13 @@ def _build_user_from_sync_payload(event: dict[str, Any], payload: dict[str, Any]
         avatar=payload.get("avatar"),
         password_hash=hash_password(str(uuid4())),
         is_paid=False,
+        accepted_terms_version=payload.get("accepted_terms_version"),
+        accepted_privacy_version=payload.get("accepted_privacy_version"),
+        legal_accepted_at=_dt(payload.get("legal_accepted_at")),
+        ai_opt_in=bool(payload.get("ai_opt_in")),
+        ai_opt_in_updated_at=_dt(payload.get("ai_opt_in_updated_at")),
+        nsfw_18_verified=bool(payload.get("nsfw_18_verified")),
+        nsfw_18_verified_at=_dt(payload.get("nsfw_18_verified_at")),
         created_at=_dt(payload.get("created_at")) or datetime.now(tz=UTC),
     )
 
@@ -729,6 +752,13 @@ def _apply_user_sync_payload(local: User, payload: dict[str, Any]) -> None:
     local.directory_opt_in = bool(payload.get("directory_opt_in"))
     local.email = str(payload.get("email") or local.email)
     local.avatar = payload.get("avatar")
+    local.accepted_terms_version = payload.get("accepted_terms_version")
+    local.accepted_privacy_version = payload.get("accepted_privacy_version")
+    local.legal_accepted_at = _dt(payload.get("legal_accepted_at"))
+    local.ai_opt_in = bool(payload.get("ai_opt_in"))
+    local.ai_opt_in_updated_at = _dt(payload.get("ai_opt_in_updated_at"))
+    local.nsfw_18_verified = bool(payload.get("nsfw_18_verified"))
+    local.nsfw_18_verified_at = _dt(payload.get("nsfw_18_verified_at"))
 
 
 async def _apply_user(db: AsyncSession, event: dict[str, Any]) -> dict[str, Any]:
@@ -1161,6 +1191,7 @@ async def _apply_message(db: AsyncSession, event: dict[str, Any]) -> dict[str, A
             reply_to_id=reply_id,
             content=str(payload.get("content") or ""),
             attachments=list(payload.get("attachments") or []),
+            is_nsfw=bool(payload.get("is_nsfw")),
             created_at=_dt(payload.get("created_at")) or datetime.now(tz=UTC),
             edited_at=_dt(payload.get("edited_at")),
         )
@@ -1171,6 +1202,7 @@ async def _apply_message(db: AsyncSession, event: dict[str, Any]) -> dict[str, A
         local.reply_to_id = reply_id
         local.content = str(payload.get("content") or "")
         local.attachments = list(payload.get("attachments") or [])
+        local.is_nsfw = bool(payload.get("is_nsfw"))
         local.edited_at = _dt(payload.get("edited_at"))
     local.sync_id = event["entity_sync_id"]
     local.sync_version = max(1, _incoming_version(event))

@@ -18,6 +18,8 @@ from app.schemas.auth import (
     RegisterRequest,
     TokenPair,
 )
+from app.schemas.wyv import WyvHandoffOut
+from app.services.legal import apply_current_legal_acceptance, user_requires_legal_reacceptance, validate_legal_acceptance_payload
 from app.services.sync_bridge import (
     consume_edge_handoff_grant,
     create_edge_handoff_grant,
@@ -26,7 +28,8 @@ from app.services.sync_bridge import (
 )
 from app.services.rate_limiter import rate_limiter
 from app.services.usernames import generate_discriminator
-from app.utils.dependencies import get_current_user
+from app.services.wyv_bridge import create_wyv_handoff_grant, wyv_bridge_is_configured
+from app.utils.dependencies import get_current_active_user
 from app.utils.responses import success_response
 from app.utils.security import (
     TokenError,
@@ -65,9 +68,23 @@ async def _throttle_auth_request(request: Request, actor_key: str, key_prefix: s
     await _throttle_auth(_client_rate_key(request), f"{key_prefix}.client")
 
 
+def _serialize_auth_user(user: User) -> dict:
+    payload = AuthUser.model_validate(user).model_dump(mode="json")
+    payload["legal_reaccept_required"] = user_requires_legal_reacceptance(user)
+    return payload
+
+
 @router.post("/register")
 async def register(payload: RegisterRequest, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
     await _throttle_auth_request(request, payload.email.lower(), "auth.register")
+    try:
+        validate_legal_acceptance_payload(
+            accepted_legal=payload.accepted_legal,
+            terms_version=payload.terms_version,
+            privacy_version=payload.privacy_version,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     existing = await db.execute(select(User).where(func.lower(User.email) == payload.email.lower()))
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already in use")
@@ -83,6 +100,7 @@ async def register(payload: RegisterRequest, request: Request, db: AsyncSession 
     )
     db.add(user)
     await db.flush()
+    apply_current_legal_acceptance(user)
     await enqueue_upsert_event(db, "user", user, base_sync_version=0)
 
     access_token = create_access_token(user.id)
@@ -101,7 +119,7 @@ async def register(payload: RegisterRequest, request: Request, db: AsyncSession 
 
     return success_response(
         {
-            "user": AuthUser.model_validate(user).model_dump(),
+            "user": _serialize_auth_user(user),
             "tokens": TokenPair(access_token=access_token, refresh_token=refresh_token).model_dump(),
         }
     )
@@ -129,7 +147,7 @@ async def login(payload: LoginRequest, request: Request, db: AsyncSession = Depe
 
     return success_response(
         {
-            "user": AuthUser.model_validate(user).model_dump(),
+            "user": _serialize_auth_user(user),
             "tokens": TokenPair(access_token=access_token, refresh_token=refresh_token).model_dump(),
         }
     )
@@ -221,11 +239,19 @@ async def logout(payload: LogoutRequest, db: AsyncSession = Depends(get_db)) -> 
 
 
 @router.post("/edge-handoff")
-async def edge_handoff(current_user: User = Depends(get_current_user)) -> dict:
+async def edge_handoff(current_user: User = Depends(get_current_active_user)) -> dict:
     if settings.node_role != "main" or not settings.edge_mode_enabled or not settings.sync_shared_secret:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Edge Mode is not configured")
     grant, expires_at = create_edge_handoff_grant(current_user)
     return success_response(EdgeHandoffOut(grant=grant, expires_at=expires_at).model_dump(mode="json"))
+
+
+@router.post("/wyv-handoff")
+async def wyv_handoff(current_user: User = Depends(get_current_active_user)) -> dict:
+    if not wyv_bridge_is_configured():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Wyv bridge is not configured")
+    grant, expires_at = create_wyv_handoff_grant(current_user)
+    return success_response(WyvHandoffOut(grant=grant, expires_at=expires_at).model_dump(mode="json"))
 
 
 @router.post("/edge-exchange")
@@ -263,6 +289,13 @@ async def edge_exchange(payload: EdgeExchangeRequest, db: AsyncSession = Depends
             avatar=user_snapshot.get("avatar"),
             password_hash=hash_password(str(uuid4())),
             is_paid=False,
+            accepted_terms_version=user_snapshot.get("accepted_terms_version"),
+            accepted_privacy_version=user_snapshot.get("accepted_privacy_version"),
+            legal_accepted_at=datetime.now(tz=UTC) if user_snapshot.get("accepted_terms_version") else None,
+            ai_opt_in=bool(user_snapshot.get("ai_opt_in")),
+            ai_opt_in_updated_at=datetime.now(tz=UTC) if user_snapshot.get("ai_opt_in") is not None else None,
+            nsfw_18_verified=bool(user_snapshot.get("nsfw_18_verified")),
+            nsfw_18_verified_at=datetime.now(tz=UTC) if user_snapshot.get("nsfw_18_verified") else None,
         )
         db.add(user)
         await db.flush()
@@ -280,7 +313,7 @@ async def edge_exchange(payload: EdgeExchangeRequest, db: AsyncSession = Depends
 
     return success_response(
         {
-            "user": AuthUser.model_validate(user).model_dump(),
+            "user": _serialize_auth_user(user),
             "tokens": TokenPair(access_token=access_token, refresh_token=refresh_token).model_dump(),
         }
     )

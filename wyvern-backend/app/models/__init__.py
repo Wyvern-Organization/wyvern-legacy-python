@@ -1,10 +1,13 @@
 from app.models.channel import Channel
+from app.models.channel_read_state import ChannelReadState
+from app.models.api_token import ApiToken
 from app.models.community import MessageBookmark, ServerActivityLog, ServerWebhook, WebhookDeliveryLog, WorkspaceDocument, WorkspaceRevision
 from app.models.dm_hidden_state import DMHiddenState
 from app.models.dm_participant import DMParticipant
 from app.models.enums import ChannelType, MemberRole, PresenceStatus
 from app.models.id_migration import IdMigrationMap
 from app.models.message import Message
+from app.models.oauth_client import OAuthClientRegistration
 from app.models.reaction import Reaction
 from app.models.recommendation import RecommendationEmbedding, RecommendationSignal, UserRecommendation
 from app.models.refresh_token import RefreshToken
@@ -12,17 +15,21 @@ from app.models.release import ReleaseFlag, ReleasePromotionAudit
 from app.models.server import Server
 from app.models.server_member import ServerMember
 from app.models.sync import ReplicationInboundLedger, ReplicationOutbox
+from app.models.ui_variant_vote import UiVariantVote
 from app.models.user import User
 from app.models.server_invite import ServerInvite
 
 __all__ = [
     "Channel",
+    "ChannelReadState",
     "ChannelType",
+    "ApiToken",
     "DMHiddenState",
     "DMParticipant",
     "IdMigrationMap",
     "MemberRole",
     "Message",
+    "OAuthClientRegistration",
     "MessageBookmark",
     "PresenceStatus",
     "Reaction",
@@ -39,6 +46,7 @@ __all__ = [
     "ServerWebhook",
     "ServerMember",
     "User",
+    "UiVariantVote",
     "UserRecommendation",
     "WebhookDeliveryLog",
     "WorkspaceDocument",

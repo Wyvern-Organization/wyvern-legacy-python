@@ -22,6 +22,12 @@ class UserOut(BaseModel):
 
 class UserMeOut(UserOut):
     is_admin: bool = False
+    accepted_terms_version: str | None = None
+    accepted_privacy_version: str | None = None
+    legal_accepted_at: datetime | None = None
+    legal_reaccept_required: bool = False
+    ai_opt_in: bool = False
+    nsfw_18_verified: bool = False
 
 
 class UserPublicOut(BaseModel):

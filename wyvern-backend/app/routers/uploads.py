@@ -5,7 +5,7 @@ from app.models import User
 from app.schemas.upload import UploadOut
 from app.services.rate_limiter import rate_limiter
 from app.services.storage import upload_file_to_storage
-from app.utils.dependencies import get_current_user
+from app.utils.dependencies import get_current_active_user
 from app.utils.responses import success_response
 
 
@@ -27,7 +27,7 @@ async def _get_upload_size(file: UploadFile) -> int:
 @router.post("")
 async def upload_file(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     await rate_limiter.check(
         key_prefix="uploads",

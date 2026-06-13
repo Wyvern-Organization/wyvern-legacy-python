@@ -16,6 +16,7 @@ from app.schemas.server import ServerCreate
 from app.services import rate_limiter as rate_limiter_module
 from app.services.admin_allowlist import AdminAllowlistService
 from app.services.community import hash_secret_token
+from app.services.legal import TERMS_VERSION, PRIVACY_VERSION, apply_current_legal_acceptance, user_requires_legal_reacceptance
 from app.services.storage import inspect_upload, upload_file_to_storage
 from app.services.sync_bridge import (
     _apply_user_sync_payload,
@@ -62,10 +63,30 @@ def test_access_token_subject(user_id: int) -> None:
 
 def test_username_rejects_handle_separator_and_controls() -> None:
     with pytest.raises(ValidationError):
-        RegisterRequest(username="admin#0001", email="admin@example.com", password="correct horse battery")  # pragma: allowlist secret
+        RegisterRequest(
+            username="admin#0001",
+            email="admin@example.com",
+            password="correct horse battery",
+            accepted_legal=True,
+            terms_version=TERMS_VERSION,
+            privacy_version=PRIVACY_VERSION,
+        )  # pragma: allowlist secret
 
     with pytest.raises(ValidationError):
         users.UserUpdateRequest(username="bad\nname")
+
+
+def test_legal_acceptance_helpers_track_current_versions() -> None:
+    user = SimpleNamespace(accepted_terms_version=None, accepted_privacy_version=None, legal_accepted_at=None)
+
+    assert user_requires_legal_reacceptance(user) is True
+
+    apply_current_legal_acceptance(user)
+
+    assert user.accepted_terms_version == TERMS_VERSION
+    assert user.accepted_privacy_version == PRIVACY_VERSION
+    assert user.legal_accepted_at is not None
+    assert user_requires_legal_reacceptance(user) is False
 
 
 def test_public_url_fields_reject_active_or_local_schemes() -> None:

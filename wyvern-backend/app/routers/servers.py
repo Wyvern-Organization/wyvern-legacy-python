@@ -28,7 +28,7 @@ from app.services.recommendations import (
 )
 from app.services.realtime import broadcast_server_event, broadcast_server_member_event
 from app.services.sync_bridge import bump_sync_version, enqueue_delete_event, enqueue_upsert_event
-from app.utils.dependencies import get_current_user
+from app.utils.dependencies import get_current_active_user
 from app.utils.responses import success_response
 
 
@@ -65,7 +65,7 @@ def _invite_path(code: str) -> str:
 async def create_server(
     payload: ServerCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     server = Server(
         name=payload.name,
@@ -111,7 +111,7 @@ async def create_server(
 
 
 @router.get("")
-async def list_servers(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
+async def list_servers(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)) -> dict:
     result = await db.execute(
         select(Server)
         .join(ServerMember, ServerMember.server_id == Server.id)
@@ -126,7 +126,7 @@ async def list_servers(db: AsyncSession = Depends(get_db), current_user: User = 
 async def list_server_directory(
     recommended: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     if recommended and recommendations_enabled():
         ranked_servers = await recommended_server_rankings(db, current_user)
@@ -197,7 +197,7 @@ async def list_server_directory(
 
 
 @router.get("/{server_id}")
-async def get_server(server_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
+async def get_server(server_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)) -> dict:
     result = await db.execute(select(Server).where(Server.id == server_id))
     server = result.scalar_one_or_none()
     if server is None:
@@ -215,7 +215,7 @@ async def update_server(
     server_id: str,
     payload: ServerUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     result = await db.execute(select(Server).where(Server.id == server_id))
     server = result.scalar_one_or_none()
@@ -260,7 +260,7 @@ async def update_server(
 async def delete_server(
     server_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     result = await db.execute(select(Server).where(Server.id == server_id))
     server = result.scalar_one_or_none()
@@ -292,7 +292,7 @@ async def delete_server(
 async def join_server(
     server_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     result = await db.execute(select(Server).where(Server.id == server_id))
     server = result.scalar_one_or_none()
@@ -328,7 +328,7 @@ async def join_server(
 async def create_server_invite(
     server_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     server_result = await db.execute(select(Server).where(Server.id == server_id))
     server = server_result.scalar_one_or_none()
@@ -370,7 +370,7 @@ async def create_server_invite(
 async def lookup_server_invite(
     code: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     _ = current_user
     result = await db.execute(select(ServerInvite).where(ServerInvite.code == code))
@@ -394,7 +394,7 @@ async def lookup_server_invite(
 async def join_server_by_invite(
     code: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     invite_result = await db.execute(select(ServerInvite).where(ServerInvite.code == code))
     invite = invite_result.scalar_one_or_none()
@@ -436,7 +436,7 @@ async def join_server_by_invite(
 async def leave_server(
     server_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     membership = await _get_membership(db, server_id, current_user.id)
     if membership is None:
@@ -470,7 +470,7 @@ async def leave_server(
 async def list_members(
     server_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     membership = await _get_membership(db, server_id, current_user.id)
     if membership is None:
@@ -489,7 +489,7 @@ async def update_member_role(
     member_user_id: str,
     role: MemberRole,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     acting_membership = await _get_membership(db, server_id, current_user.id)
     if acting_membership is None or acting_membership.role != MemberRole.owner:
@@ -526,7 +526,7 @@ async def server_activity(
     server_id: str,
     limit: int = Query(default=50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     membership = await _get_membership(db, server_id, current_user.id)
     if membership is None:

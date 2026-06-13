@@ -15,6 +15,7 @@ ENTITY_PREFIXES = {
     "user": "user",
     "server": "server",
     "channel": "channel",
+    "channel_read_state": "read_state",
     "message": "msg",
     "server_invite": "invite",
     "refresh_token": "session",  # nosec B105
@@ -30,6 +31,7 @@ ENTITY_PREFIXES = {
     "release_promotion_audit": "release_audit",
     "replication_outbox": "replication",
     "id_migration_map": "idmap",
+    "api_token": "api_token",
 }
 
 _CROCKFORD_BASE32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"  # pragma: allowlist secret

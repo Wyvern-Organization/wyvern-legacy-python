@@ -22,6 +22,7 @@ Production-focused FastAPI backend for Wyvern, a server/channel/DM messaging pla
 - Uploads: local file upload with MIME checks + virus-scan hook placeholder
 - Real-time: one WebSocket per user with channel subscription fanout
 - Voice: basic voice channel presence + WebRTC signaling for audio calls
+- Wyv bridge: browser handoff and API-token introspection for the separate Wyv AI product
 - Directories: opt-in User Directory + opt-in Server Directory
 - Recommendations: public-only directory suggestions with cached signals and optional EmbeddingGemma embeddings
 - Admin: `/admin` UI + `/api/v1/admin/overview` feed for users/servers/activity
@@ -95,6 +96,8 @@ Copy `.env.example` to `.env` and set values.
 - `ADMIN_ALLOWLIST` comma- or newline-separated exact admin handles such as `axel#1234`
 - `CORS_ORIGINS` comma-separated origins
 - `MIRROR_TARGET_URL` optional upstream base URL used by `/mirror/...` proxy (example: `https://your-tunnel.trycloudflare.com`)
+- `OLLAMA_BASE_URL` Ollama base URL used by the OpenAI-compatible gateway (default: `http://ollama:11434`)
+- `OPENAI_TOKEN_ENCRYPTION_KEY` optional key material used to encrypt API tokens at rest; if omitted, the backend derives a key from `JWT_SECRET_KEY`
 - `LOCAL_MEDIA_DIR` local directory used to persist uploads (default: `media`)
 - `MEDIA_URL_PREFIX` URL path used to serve media files (default: `/media`)
 - `GIPHY_API_KEY` public GIPHY API key used by the GIF picker
@@ -116,6 +119,31 @@ Copy `.env.example` to `.env` and set values.
 - `RECOMMENDATION_FULL_REFRESH_HOURS` default: `24`
 - `RECOMMENDATION_MAX_CANDIDATES` default: `50`
 - `RECOMMENDATION_WORKER_POLL_SECONDS` default: `300`
+
+## Wyv AI Surface
+
+- Wyv is the standalone AI product and OpenAI-compatible API host.
+- Wyvern now owns:
+  - browser identity for Wyv handoff
+  - API-token issuance, rotation, and revocation
+  - signed internal endpoints used by Wyv for session exchange and token introspection
+- Clients should use the Wyv host with `/openai/v1` as the compatibility base path.
+- Wyvern's legacy `/openai/v1` routes are intentionally disabled and return a `410 GATEWAY_MOVED` response that points callers to Wyv.
+- Requests still authenticate with Wyvern API tokens created from the in-app `For Devs -> API Settings` panel.
+- Token creation, rotation, and revocation remain admin-only for now while rollout expands.
+- The `Chat` settings section is reserved for future Wyvern bot creation and is disabled for now.
+
+## ChatGPT MCP App
+
+- The published MCP server lives at one stable URL: `/mcp`.
+- Wyvern uses OAuth 2.1 account linking for ChatGPT instead of private bearer-token links.
+- V1 is read-only and exposes `search` and `fetch` tools over MCP for accessible Wyvern messages and workspace documents.
+- OAuth discovery lives at `/mcp/.well-known/oauth-authorization-server`.
+- Protected resource metadata lives at `/.well-known/oauth-protected-resource/mcp`.
+- Document citation pages are served under signed `/mcp-doc/<ticket>` URLs.
+- In the app UI, the MCP URL appears in `Settings -> Connectors`.
+- For testing, create a custom connector in ChatGPT and paste the `/mcp` URL.
+- For non-developer users, publish the same MCP URL through OpenAI's ChatGPT app submission flow so ChatGPT can show a normal Connect button and handle Wyvern sign-in through OAuth.
 
 ## Public Recommendations
 
@@ -155,6 +183,14 @@ On ASPC, the one-command launcher lives at `../scripts/start-aspc.ps1` and start
 7. `alembic upgrade head`
 8. `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`
 
+## Tests
+
+From `wyvern-backend/`, run:
+
+```bash
+pytest -q
+```
+
 ## Landing + Mirror Proxy
 
 - `GET /landing` serves `../landing/index.html` if present.
@@ -191,6 +227,8 @@ Base prefix: `/api/v1`
 - `POST /auth/login`
 - `POST /auth/refresh`
 - `POST /auth/logout`
+- `GET /legal/current`
+- `POST /legal/accept`
 - `GET /users/me`
 - `PATCH /users/me`
 - `GET /users/lookup?q=<username|username#1234>`
@@ -230,9 +268,20 @@ Base prefix: `/api/v1`
 - `GET /dms/{channel_id}`
 - `DELETE /dms/{channel_id}`
 - `GET /admin/overview`
+- `GET /ai/api-tokens`
+- `POST /ai/api-tokens`
+- `DELETE /ai/api-tokens/{token_id}`
+- `POST /ai/api-tokens/{token_id}/rotate`
+- `POST /ai/api-tokens/revoke-all`
+- `POST /ai/api-tokens/rotate-all`
 
 ## Notes
 
+- Registration now requires explicit clickwrap acceptance of the current Terms of Service and Privacy Policy via `accepted_legal`, `terms_version`, and `privacy_version`.
+- Auth and `/users/me` payloads include legal-version acceptance state plus `ai_opt_in` and `nsfw_18_verified` preference flags.
+- Runtime config now includes a `legal` object with current versions, effective date, canonical URLs, and support/legal contact emails.
+- Existing users with stale legal versions are blocked from active app routes until they complete `POST /legal/accept`.
+- Messages now support `is_nsfw` so clients can gate sensitive content behind 18+ self-attestation.
 - Rate limiting uses Redis fixed-window counters.
 - Real-time events are published through Redis pub/sub channel `wyvern:channel-events`.
 - Uploads are stored locally and served from `/media/...`.

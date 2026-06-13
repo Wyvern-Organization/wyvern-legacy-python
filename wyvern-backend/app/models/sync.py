@@ -2,10 +2,10 @@ from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column
 
 from app.database import Base
+from app.models.json_types import json_value_type
 from app.services.ids import ID_COLUMN_LENGTH, generate_entity_id
 
 
@@ -35,7 +35,7 @@ class ReplicationOutbox(Base):
     action: Mapped[str] = mapped_column(String(16), nullable=False)
     entity_sync_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     base_sync_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    payload: Mapped[dict | None] = mapped_column(json_value_type, nullable=True)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

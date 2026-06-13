@@ -7,6 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models import User
+from app.services.legal import (
+    LEGAL_RECONSENT_ERROR_CODE,
+    LEGAL_RECONSENT_MESSAGE,
+    current_legal_versions,
+    user_requires_legal_reacceptance,
+)
 from app.utils.security import TokenError, decode_token
 
 
@@ -36,6 +42,21 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
     return user
+
+
+async def get_current_active_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if user_requires_legal_reacceptance(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": LEGAL_RECONSENT_ERROR_CODE,
+                "message": LEGAL_RECONSENT_MESSAGE,
+                "details": current_legal_versions(),
+            },
+        )
+    return current_user
 
 
 async def get_db_session() -> AsyncIterator[AsyncSession]:

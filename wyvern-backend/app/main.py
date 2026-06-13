@@ -12,10 +12,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.routing import Route
 
 from app.config import get_settings
 from app.database import engine
-from app.routers import admin, auth, channels, dms, messages, runtime, servers, sync, uploads, users, webhooks, workspaces
+from app.routers import admin, ai, auth, channels, dms, legal, messages, openai, runtime, servers, sync, uploads, users, webhooks, workspaces, wyv_internal
+from app.services import mcp_server
 from app.services.pubsub import start_pubsub_listener, stop_pubsub_listener
 from app.services.redis_client import close_redis, init_redis
 from app.services.recommendations import start_recommendation_worker, stop_recommendation_worker
@@ -28,6 +30,9 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INDEX_FILE = PROJECT_ROOT / "index.html"
+EDGE_CHOOSER_FILE = PROJECT_ROOT / "edge_ui_chooser.html"
+NEW_UI_A_FILE = PROJECT_ROOT / "new_ui_a.html"
+NEW_UI_B_FILE = PROJECT_ROOT / "new_ui_b.html"
 ADMIN_FILE = PROJECT_ROOT / "admin.html"
 LANDING_FILE = PROJECT_ROOT.parent / "landing" / "index.html"
 CHANGELOG_FILE = PROJECT_ROOT / "changelog.md"
@@ -100,13 +105,14 @@ async def lifespan(_: FastAPI):
 
     await ensure_database_schema_current()
     await init_redis()
-    await start_pubsub_listener()
-    await start_sync_bridge_worker()
-    await start_recommendation_worker()
-    yield
-    await stop_recommendation_worker()
-    await stop_sync_bridge_worker()
-    await stop_pubsub_listener()
+    async with mcp_server.wyvern_mcp.session_manager.run():
+        await start_pubsub_listener()
+        await start_sync_bridge_worker()
+        await start_recommendation_worker()
+        yield
+        await stop_recommendation_worker()
+        await stop_sync_bridge_worker()
+        await stop_pubsub_listener()
     await close_redis()
 
 
@@ -127,7 +133,19 @@ app.mount(settings.media_url_prefix, StaticFiles(directory=MEDIA_DIR), name="med
 
 
 def _is_api_path(path: str) -> bool:
-    return path.startswith(settings.api_v1_prefix) or path.startswith(EDGE_API_V1_PREFIX) or path.startswith("/internal/sync")
+    return (
+        path.startswith(settings.api_v1_prefix)
+        or path.startswith(EDGE_API_V1_PREFIX)
+        or path.startswith("/openai/v1")
+        or path.startswith("/mcp")
+        or path.startswith("/mcp-doc")
+        or path.startswith("/internal/sync")
+        or path.startswith("/internal/wyv")
+    )
+
+
+def _is_openai_path(path: str) -> bool:
+    return path.startswith("/openai/v1")
 
 
 def _is_allowed_indexing_asset(path: str) -> bool:
@@ -136,6 +154,71 @@ def _is_allowed_indexing_asset(path: str) -> bool:
         or path.startswith(f"{settings.media_url_prefix}/")
         or path in {"/health", "/favicon.ico"}
     )
+
+
+def _edge_variant_unavailable_html(variant_label: str) -> str:
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{variant_label} Unavailable</title>
+  <style>
+    :root {{
+      color-scheme: dark;
+      --bg: #06131a;
+      --panel: rgba(12, 28, 38, 0.92);
+      --text: #f4fbff;
+      --muted: rgba(244, 251, 255, 0.7);
+      --accent: #7cecff;
+      --border: rgba(124, 236, 255, 0.22);
+    }}
+    * {{ box-sizing: border-box; }}
+    html, body {{ height: 100%; margin: 0; }}
+    body {{
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at top, rgba(124, 236, 255, 0.16), transparent 42%),
+        linear-gradient(180deg, #07141b 0%, #02070b 100%);
+      color: var(--text);
+      font-family: "Inter", system-ui, sans-serif;
+    }}
+    .card {{
+      width: min(540px, 100%);
+      padding: 28px;
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    }}
+    .kicker {{
+      margin-bottom: 10px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }}
+    h1 {{ margin: 0 0 12px; font-size: 30px; }}
+    p {{ margin: 0; color: var(--muted); line-height: 1.6; }}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="kicker">Edge UI Lab</div>
+    <h1>{variant_label} is not available yet</h1>
+    <p>This host knows about the variant, but the HTML asset has not been added yet. Return to the Edge chooser and try one of the available UIs.</p>
+  </main>
+</body>
+</html>"""
+
+
+def _serve_html_file_or_unavailable(file_path: Path, unavailable_label: str) -> Response:
+    if file_path.exists():
+        return FileResponse(file_path, headers={"Cache-Control": "no-store"})
+    return HTMLResponse(_edge_variant_unavailable_html(unavailable_label), status_code=status.HTTP_200_OK)
 
 
 @app.middleware("http")
@@ -195,6 +278,8 @@ async def security_headers_middleware(request: Request, call_next):
 EDGE_API_V1_PREFIX = f"/edge{settings.api_v1_prefix}"
 BROWSER_API_ROUTERS = (
     auth.router,
+    ai.router,
+    legal.api_router,
     runtime.router,
     users.router,
     servers.router,
@@ -207,10 +292,74 @@ BROWSER_API_ROUTERS = (
     admin.router,
 )
 
+app.include_router(legal.public_router)
+
 for router in BROWSER_API_ROUTERS:
     app.include_router(router, prefix=settings.api_v1_prefix)
     app.include_router(router, prefix=EDGE_API_V1_PREFIX)
+app.include_router(openai.router)
 app.include_router(sync.router)
+app.include_router(wyv_internal.router)
+
+
+@app.get("/.well-known/oauth-protected-resource/mcp", include_in_schema=False)
+async def serve_mcp_protected_resource_metadata(request: Request) -> Response:
+    return await mcp_server.serve_protected_resource_metadata(request)
+
+
+@app.get("/mcp/.well-known/oauth-authorization-server", include_in_schema=False)
+async def serve_mcp_oauth_metadata(request: Request) -> Response:
+    return await mcp_server.serve_oauth_metadata(request)
+
+
+@app.get("/mcp/.well-known/openid-configuration", include_in_schema=False)
+@app.get("/.well-known/oauth-authorization-server/mcp", include_in_schema=False)
+@app.get("/.well-known/openid-configuration/mcp", include_in_schema=False)
+async def serve_mcp_oauth_metadata_compat(request: Request) -> Response:
+    return await mcp_server.serve_oauth_metadata(request)
+
+
+@app.get("/mcp/authorize", include_in_schema=False)
+@app.post("/mcp/authorize", include_in_schema=False)
+async def serve_mcp_oauth_authorize(request: Request) -> Response:
+    return await mcp_server.serve_oauth_authorize(request)
+
+
+@app.post("/mcp/token", include_in_schema=False)
+async def serve_mcp_oauth_token(request: Request) -> Response:
+    return await mcp_server.serve_oauth_token(request)
+
+
+@app.post("/mcp/register", include_in_schema=False)
+async def serve_mcp_oauth_register(request: Request) -> Response:
+    return await mcp_server.serve_oauth_register(request)
+
+
+@app.get("/mcp/oauth/authorize", include_in_schema=False)
+async def render_mcp_oauth_authorize(request: Request) -> Response:
+    return await mcp_server.render_oauth_authorize_screen(request)
+
+
+@app.post("/mcp/oauth/authorize", include_in_schema=False)
+async def submit_mcp_oauth_authorize(request: Request) -> Response:
+    return await mcp_server.submit_oauth_authorize_screen(request)
+
+app.router.routes.append(
+    Route(
+        "/mcp",
+        endpoint=mcp_server.wyvern_public_mcp_transport_app,
+        methods=["GET", "POST", "DELETE", "HEAD", "OPTIONS"],
+        name="mcp",
+    )
+)
+app.router.routes.append(
+    Route(
+        "/mcp/",
+        endpoint=mcp_server.wyvern_public_mcp_transport_app,
+        methods=["GET", "POST", "DELETE", "HEAD", "OPTIONS"],
+        name="mcp-slash",
+    )
+)
 
 
 @app.websocket("/ws")
@@ -238,6 +387,17 @@ async def health_check() -> JSONResponse:
     )
 
 
+@app.get("/mcp-doc/{ticket}", include_in_schema=False)
+async def serve_mcp_document(ticket: str) -> Response:
+    resolved = mcp_server._decode_document_ticket(ticket)
+    if resolved is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired MCP document link")
+
+    principal, document_id = resolved
+    document = await mcp_server._build_mcp_fetch_document(principal, document_id)
+    return HTMLResponse(mcp_server.render_mcp_document_html(document), headers={"Cache-Control": "no-store"})
+
+
 @app.get("/", include_in_schema=False)
 async def serve_index() -> FileResponse:
     if not INDEX_FILE.exists():
@@ -255,14 +415,48 @@ async def serve_invite_index(code: str) -> FileResponse:
 
 @app.get("/edge", include_in_schema=False)
 @app.get("/edge/", include_in_schema=False)
-@app.get("/edge/{path:path}", include_in_schema=False)
-async def serve_edge_index(path: str = "") -> FileResponse:
-    _ = path
+async def serve_edge_chooser() -> Response:
+    if not settings.edge_mode_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edge Mode is not enabled")
+    if not EDGE_CHOOSER_FILE.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="edge_ui_chooser.html not found")
+    return FileResponse(EDGE_CHOOSER_FILE, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/edge/ui", include_in_schema=False)
+@app.get("/edge/ui/", include_in_schema=False)
+async def serve_edge_ui_index() -> Response:
+    if not settings.edge_mode_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edge Mode is not enabled")
+    if not EDGE_CHOOSER_FILE.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="edge_ui_chooser.html not found")
+    return FileResponse(EDGE_CHOOSER_FILE, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/edge/ui/original", include_in_schema=False)
+@app.get("/edge/ui/original/", include_in_schema=False)
+async def serve_edge_original_ui() -> Response:
     if not settings.edge_mode_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edge Mode is not enabled")
     if not INDEX_FILE.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="index.html not found")
     return FileResponse(INDEX_FILE, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/edge/ui/a", include_in_schema=False)
+@app.get("/edge/ui/a/", include_in_schema=False)
+async def serve_edge_ui_a() -> Response:
+    if not settings.edge_mode_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edge Mode is not enabled")
+    return _serve_html_file_or_unavailable(NEW_UI_A_FILE, "UI A")
+
+
+@app.get("/edge/ui/b", include_in_schema=False)
+@app.get("/edge/ui/b/", include_in_schema=False)
+async def serve_edge_ui_b() -> Response:
+    if not settings.edge_mode_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edge Mode is not enabled")
+    return _serve_html_file_or_unavailable(NEW_UI_B_FILE, "UI B")
 
 
 @app.get("/admin", include_in_schema=False)
@@ -423,7 +617,41 @@ async def mirror_request(request: Request, path: str = "") -> Response:
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    if _is_openai_path(request.url.path):
+        detail_mapping = exc.detail if isinstance(exc.detail, dict) else {}
+        if not isinstance(detail_mapping, dict):
+            detail_mapping = {}
+        status_code = exc.status_code
+        type_map = {
+            status.HTTP_401_UNAUTHORIZED: "authentication_error",
+            status.HTTP_403_FORBIDDEN: "permission_error",
+            status.HTTP_404_NOT_FOUND: "not_found_error",
+            status.HTTP_429_TOO_MANY_REQUESTS: "rate_limit_error",
+        }
+        error_type = type_map.get(status_code, "invalid_request_error" if status_code < 500 else "internal_error")
+        message = str(detail_mapping.get("message") or exc.detail or "Request failed")
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "error": {
+                    "message": message,
+                    "type": error_type,
+                    "param": detail_mapping.get("param"),
+                    "code": detail_mapping.get("code"),
+                }
+            },
+        )
+    if isinstance(exc.detail, dict):
+        detail_mapping = dict(exc.detail)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_response(
+                code=str(detail_mapping.get("code") or "HTTP_ERROR"),
+                message=str(detail_mapping.get("message") or "Request failed"),
+                details=detail_mapping.get("details"),
+            ),
+        )
     return JSONResponse(
         status_code=exc.status_code,
         content=error_response(code="HTTP_ERROR", message=str(exc.detail)),
@@ -431,7 +659,20 @@ async def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    if _is_openai_path(request.url.path):
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "error": {
+                    "message": "Invalid request",
+                    "type": "invalid_request_error",
+                    "param": None,
+                    "code": "validation_error",
+                    "details": exc.errors(),
+                }
+            },
+        )
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content=error_response(code="VALIDATION_ERROR", message="Invalid request", details=exc.errors()),

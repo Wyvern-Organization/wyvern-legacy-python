@@ -13,7 +13,7 @@ from app.schemas.community import WorkspaceDocumentOut, WorkspaceRevisionOut, Wo
 from app.services.access import ensure_channel_access, get_channel_or_404
 from app.services.community import record_server_activity
 from app.services.pubsub import publish_channel_event
-from app.utils.dependencies import get_current_user
+from app.utils.dependencies import get_current_active_user
 from app.utils.responses import success_response
 
 
@@ -114,7 +114,7 @@ async def get_workspace(
     channel_id: str,
     visibility: str = Query(default="public"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     channel = await get_channel_or_404(db, channel_id)
     await ensure_channel_access(db, channel, current_user.id)
@@ -135,7 +135,7 @@ async def update_workspace(
     channel_id: str,
     payload: WorkspaceUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     channel = await get_channel_or_404(db, channel_id)
     await ensure_channel_access(db, channel, current_user.id)

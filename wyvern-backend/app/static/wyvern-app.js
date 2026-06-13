@@ -24,6 +24,7 @@
       edge_mode_available: false,
       bridge_schema_version: 1,
       sync_enabled: false,
+      wyv_public_base_url: null,
       feature_flags: {},
       giphy_api_key: null,
       giphy_rating: 'g',
@@ -164,6 +165,15 @@
       };
     }
 
+    function wyvPublicBaseUrl() {
+      return String(runtimeConfig?.wyv_public_base_url || '').trim().replace(/\/+$/, '');
+    }
+
+    function wyvContinueTarget() {
+      const params = new URLSearchParams(window.location.search);
+      return String(params.get('wyv_continue') || '').trim();
+    }
+
     function resolvePostAuthView(user) {
       return user?.legal_reaccept_required ? 'legal' : resolveAuthedView();
     }
@@ -288,9 +298,24 @@
         }
         token.clear();
       },
+      wyvHandoff: () => req('POST', '/auth/wyv-handoff'),
       edgeHandoff: () => req('POST', '/auth/edge-handoff'),
       edgeExchange: (grant) => req('POST', '/auth/edge-exchange', { grant }),
     };
+
+    async function maybeLaunchWyvFromQuery() {
+      const target = wyvContinueTarget();
+      const wyvBase = wyvPublicBaseUrl();
+      if (!target || !wyvBase || !token.access) return false;
+      const handoff = await auth.wyvHandoff();
+      const grant = handoff?.grant || handoff?.data?.grant || handoff?.handoff;
+      if (!grant) throw new Error('Wyv handoff did not return a grant');
+      const destination = new URL('/auth/callback', wyvBase);
+      destination.searchParams.set('grant', grant);
+      destination.searchParams.set('return_to', target);
+      window.location.replace(destination.toString());
+      return true;
+    }
 
     async function signOutUser() {
       const refreshToken = token.refresh;
@@ -334,6 +359,11 @@
       directory: ({ recommended = false } = {}) => req('GET', `/users/directory${recommended ? '?recommended=true' : ''}`),
     };
     const ai = {
+      mcp: {
+        get: () => req('GET', '/ai/mcp-connection'),
+        create: () => req('POST', '/ai/mcp-connection'),
+        revoke: () => req('DELETE', '/ai/mcp-connection'),
+      },
       apiTokens: {
         list: () => req('GET', '/ai/api-tokens'),
         create: (name) => req('POST', '/ai/api-tokens', { name }),
@@ -1262,6 +1292,7 @@
         if (k === 'class') e.className = v;
         else if (k.startsWith('on')) e.addEventListener(k.slice(2).toLowerCase(), v);
         else if (k === 'unsafeHtml') appendTrustedHtml(e, v);
+        else if (k === 'value' && 'value' in e) e.value = v ?? '';
         else if (typeof v === 'boolean') {
           if (k in e) e[k] = v;
           if (v) e.setAttribute(k, '');
@@ -2620,6 +2651,15 @@ If you do not fully understand these risks, do not enable this mode.`;
       showServerSettingsHub(serverId, 'integrations');
     }
 
+    function connectorsAllowedForCurrentContext() {
+      if (!(currentClientMode() === 'edge' && isUiA())) return true;
+      return !!store.state.user?.is_admin;
+    }
+
+    function defaultSettingsSection() {
+      return connectorsAllowedForCurrentContext() && currentClientMode() === 'edge' && isUiA() ? 'connectors' : 'account';
+    }
+
     function showSettingsHub(initialSection = 'account') {
       const { user } = store.state;
       if (!user) return;
@@ -2633,7 +2673,7 @@ If you do not fully understand these risks, do not enable this mode.`;
       const panel = el('div', { class: 'settings-hub-panel' });
       const head = el('div', { class: 'settings-head' });
       const title = el('div', { class: 'settings-title' }, 'Settings');
-      const subtitle = el('div', { class: 'settings-subtitle' }, 'Manage your profile, API access, and preview features.');
+      const subtitle = el('div', { class: 'settings-subtitle' }, 'Manage your profile, connectors, API access, and preview features.');
       const content = el('div', { class: 'settings-hub-content' });
       const signOut = async () => {
         overlay.remove();
@@ -2647,9 +2687,13 @@ If you do not fully understand these risks, do not enable this mode.`;
         }, heroIcon('arrowLeftOnRectangle', { size: 16 }), 'Sign Out'),
         el('button', { class: 'btn-ghost', type: 'button', onClick: () => overlay.remove() }, 'Close')
       );
-      let section = ['account', 'api', 'chat', 'ai'].includes(initialSection)
+      const connectorsAllowed = connectorsAllowedForCurrentContext();
+      let section = ['account', 'connectors', 'api', 'chat', 'ai'].includes(initialSection)
         ? (['chat', 'ai'].includes(initialSection) ? 'api' : initialSection)
         : 'account';
+      if (section === 'connectors' && !connectorsAllowed) {
+        section = 'account';
+      }
 
       head.append(title, subtitle);
       panel.append(head, content, footer);
@@ -2960,6 +3004,116 @@ If you do not fully understand these risks, do not enable this mode.`;
         );
       }
 
+      function renderConnectorsSection() {
+        const container = el('div', { class: 'settings-section-stack' });
+        let mcpConnection = null;
+        let mcpLoading = true;
+        let statusMessage = '';
+        let usingFallbackConnection = false;
+
+        const buildFallbackMcpConnection = () => ({
+          server_url: `${window.location.origin.replace(/\/$/, '')}/mcp`,
+          app_name: 'Wyvern',
+          recommended_client: 'ChatGPT Apps',
+          auth_method: 'OAuth 2.1',
+          published_ready: true,
+        });
+
+        const refreshMcpConnection = async () => {
+          mcpLoading = true;
+          redraw();
+          try {
+            const payload = await ai.mcp.get();
+            mcpConnection = payload?.connection || buildFallbackMcpConnection();
+            usingFallbackConnection = !payload?.connection;
+            statusMessage = usingFallbackConnection
+              ? 'Using the default Wyvern MCP URL.'
+              : '';
+          } catch (err) {
+            mcpConnection = buildFallbackMcpConnection();
+            usingFallbackConnection = true;
+            statusMessage = 'Using the default Wyvern MCP URL because live connector metadata could not be loaded right now.';
+          } finally {
+            mcpLoading = false;
+            redraw();
+          }
+        };
+
+        const copyValue = async (value, successLabel = 'Copied') => {
+          if (!value) return;
+          try {
+            await navigator.clipboard.writeText(value);
+            toast(successLabel, 'success');
+          } catch {
+            toast('Could not copy', 'error');
+          }
+        };
+
+        const redraw = () => {
+          container.innerHTML = '';
+
+          const chatgptCardChildren = [];
+          if (mcpLoading) {
+            chatgptCardChildren.push(el('div', { class: 'settings-card-copy' }, 'Loading the public Wyvern MCP endpoint...'));
+          } else {
+            const serverUrl = mcpConnection?.server_url || '';
+            const serverUrlInput = el('input', {
+              class: 'settings-input ai-token-secret-input',
+              type: 'text',
+              readOnly: 'true',
+              value: serverUrl,
+              placeholder: 'Public Wyvern MCP URL',
+            });
+            const copyUrlBtn = el('button', {
+              class: 'btn-soft',
+              type: 'button',
+              disabled: !serverUrl,
+              onClick: () => copyValue(serverUrl, 'Connector URL copied'),
+            }, 'Copy URL');
+
+            if (statusMessage) {
+              chatgptCardChildren.push(el('div', { class: 'settings-card-copy' }, statusMessage));
+            }
+
+            chatgptCardChildren.push(
+              el('div', { class: 'settings-card-copy' }, 'Connect Wyvern to ChatGPT with one public MCP URL and official account linking. No bearer tokens or API setup required.'),
+              el('div', { class: 'settings-meta-grid' },
+                el('div', { class: 'settings-meta-chip' },
+                  el('div', { class: 'settings-meta-label' }, 'Client'),
+                  el('div', { class: 'settings-meta-value' }, 'ChatGPT Apps')
+                ),
+                el('div', { class: 'settings-meta-chip' },
+                  el('div', { class: 'settings-meta-label' }, 'Access'),
+                  el('div', { class: 'settings-meta-value' }, 'OAuth read-only MCP')
+                ),
+                el('div', { class: 'settings-meta-chip' },
+                  el('div', { class: 'settings-meta-label' }, 'Status'),
+                  el('div', { class: 'settings-meta-value' }, mcpConnection ? (usingFallbackConnection ? 'Fallback ready' : 'Publish-ready') : 'Unavailable')
+                )
+              ),
+              el('div', { class: 'settings-field' },
+                el('label', {}, 'Public MCP URL'),
+                el('div', { class: 'ai-token-secret-row' }, serverUrlInput, copyUrlBtn)
+              ),
+              el('div', { class: 'settings-card-copy' },
+                'For testing, create a custom connector in ChatGPT and paste this URL. After the app is published through OpenAI, users will just click Connect and sign into Wyvern with OAuth.'
+              )
+            );
+          }
+
+          const chatgptCard = el('div', { class: 'settings-card' }, ...chatgptCardChildren);
+
+          container.append(
+            el('div', { class: 'settings-section-kicker' }, 'Connectors'),
+            el('div', { class: 'settings-section-intro' }, 'Connect Wyvern to chat apps and other user-friendly tools without manual API setup.'),
+            chatgptCard
+          );
+        };
+
+        void refreshMcpConnection();
+        return container;
+      }
+
       function renderApiSection() {
         const container = el('div', { class: 'settings-section-stack' });
         let tokens = [];
@@ -3004,15 +3158,17 @@ If you do not fully understand these risks, do not enable this mode.`;
 
         const redraw = () => {
           container.innerHTML = '';
+          const wyvBase = wyvPublicBaseUrl();
+          const wyvApiBase = wyvBase ? `${wyvBase}/openai/v1` : '/openai/v1';
 
           const accessCard = el('div', { class: 'settings-card' },
             el('div', { class: 'settings-card-copy' },
-              'Use Wyvern API tokens to connect approved apps, tools, and automations to your account.',
+              'Use Wyvern API tokens to connect Wyv and other approved apps, tools, and automations to your account.',
             ),
             el('div', { class: 'settings-meta-grid' },
               el('div', { class: 'settings-meta-chip' },
-                el('div', { class: 'settings-meta-label' }, 'Base Path'),
-                el('div', { class: 'settings-meta-value' }, '/openai/v1')
+                el('div', { class: 'settings-meta-label' }, 'API Base'),
+                el('div', { class: 'settings-meta-value' }, wyvApiBase)
               ),
               el('div', { class: 'settings-meta-chip' },
                 el('div', { class: 'settings-meta-label' }, 'Auth'),
@@ -3023,7 +3179,7 @@ If you do not fully understand these risks, do not enable this mode.`;
                 el('div', { class: 'settings-meta-value' }, canManageTokens ? 'Admin-managed rollout' : 'Access limited')
               )
             ),
-            el('div', { class: 'settings-warning-copy' }, 'This API is OpenAI-compatible and designed for personal integrations today. Bot creation tools will arrive separately later.')
+            el('div', { class: 'settings-warning-copy' }, 'This API is OpenAI-compatible and now lives on Wyv. Bot creation tools will arrive separately later.')
           );
 
           const tokensCardChildren = [];
@@ -3219,7 +3375,7 @@ If you do not fully understand these risks, do not enable this mode.`;
 
           container.append(
             el('div', { class: 'settings-section-kicker' }, 'API Access'),
-            el('div', { class: 'settings-section-intro' }, 'Create and manage tokens for apps and workflows that connect to Wyvern on your behalf.'),
+            el('div', { class: 'settings-section-intro' }, 'Create and manage direct API tokens for lower-level integrations and automations.'),
             accessCard,
             tokenCard,
             buildChatSoonCard(),
@@ -3243,16 +3399,18 @@ If you do not fully understand these risks, do not enable this mode.`;
         Array.from(nav.querySelectorAll('.settings-hub-nav-btn')).forEach((button) => {
           button.classList.toggle('active', button.dataset.section === section);
         });
-        if (section === 'api') content.appendChild(renderApiSection());
+        if (section === 'connectors') content.appendChild(renderConnectorsSection());
+        else if (section === 'api') content.appendChild(renderApiSection());
         else if (section === 'devs') renderForDevsSection();
         else renderAccountSection();
       }
 
       const sections = [
         { id: 'account', label: 'Account', icon: 'pencilSquare' },
+        connectorsAllowed ? { id: 'connectors', label: 'Connectors', icon: 'link' } : null,
         { id: 'api', label: 'API', icon: 'key' },
         { id: 'devs', label: 'For Devs', icon: 'cog' },
-      ];
+      ].filter(Boolean);
       for (const item of sections) {
         nav.appendChild(
           el('button', {
@@ -4681,6 +4839,7 @@ If you do not fully understand these risks, do not enable this mode.`;
             }
             const me = await enrichUserPresence(await users.me());
             store.set({ user: me, isAuthed: true, view: resolvePostAuthView(me) });
+            if (await maybeLaunchWyvFromQuery()) return;
             if (shouldAutoOpenChangelog()) {
               showChangelogModal();
             }
@@ -4759,6 +4918,7 @@ If you do not fully understand these risks, do not enable this mode.`;
           });
           const me = await enrichUserPresence(await users.me());
           store.set({ user: me, isAuthed: true, view: resolvePostAuthView(me) });
+          if (await maybeLaunchWyvFromQuery()) return;
         } catch (error) {
           errEl.textContent = error?.message || 'Could not update your legal acceptance.';
           errEl.style.display = 'block';
@@ -8236,7 +8396,7 @@ If you do not fully understand these risks, do not enable this mode.`;
             label: 'Settings',
             title: 'Open Settings',
             icon: heroIcon('cog', { size: 18 }),
-            onClick: () => showSettingsHub('account'),
+            onClick: () => showSettingsHub(defaultSettingsSection()),
           }));
           iconSidebar.appendChild(footer);
           return;
@@ -8282,7 +8442,7 @@ If you do not fully understand these risks, do not enable this mode.`;
             label: 'Settings',
             meta: 'Profile, status, and developer controls',
             icon: heroIcon('cog', { size: 18 }),
-            onClick: () => showSettingsHub('account'),
+            onClick: () => showSettingsHub(defaultSettingsSection()),
           }));
           iconSidebar.appendChild(utilitySection);
         }
@@ -8643,7 +8803,7 @@ If you do not fully understand these risks, do not enable this mode.`;
           class: 'panel-btn',
           title: 'Settings',
           'aria-label': 'Open Settings',
-          onClick: () => showSettingsHub('account'),
+          onClick: () => showSettingsHub(defaultSettingsSection()),
         }, heroIcon('cog', { size: 16 }));
 
         const logoutBtn = el('button', {
@@ -9412,6 +9572,7 @@ If you do not fully understand these risks, do not enable this mode.`;
           try {
             const me = await enrichUserPresence(await users.me());
             store.set({ user: me, isAuthed: true, view: resolvePostAuthView(me) });
+            if (await maybeLaunchWyvFromQuery()) return;
             return;
           } catch {
             token.clear();
@@ -9422,6 +9583,7 @@ If you do not fully understand these risks, do not enable this mode.`;
         if (await tryEmbeddedEdgeHandoff()) {
           const me = await enrichUserPresence(await users.me());
           store.set({ user: me, isAuthed: true, view: resolvePostAuthView(me) });
+          if (await maybeLaunchWyvFromQuery()) return;
           return;
         }
         store.set({ view: 'auth' });

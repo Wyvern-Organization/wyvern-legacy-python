@@ -1,10 +1,10 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.json_types import json_value_type
 from app.models.sync import SyncMixin
 from app.services.ids import ID_COLUMN_LENGTH, generate_entity_id
 
@@ -60,7 +60,7 @@ class WebhookDeliveryLog(Base):
     request_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True, index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
-    payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    payload: Mapped[dict | None] = mapped_column(json_value_type, nullable=True)
     response_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
@@ -120,5 +120,5 @@ class ServerActivityLog(Base):
     action: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     target_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     target_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    activity_metadata: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
+    activity_metadata: Mapped[dict | None] = mapped_column("metadata", json_value_type, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

@@ -10,7 +10,7 @@ from app.models import Channel, Message, Server, ServerMember, User
 from app.schemas.server import ServerOut
 from app.services.admin_allowlist import admin_allowlist_service
 from app.services.release_flags import build_release_audit, build_release_status, promote_release_flags, resolve_release_channel
-from app.utils.dependencies import get_current_user
+from app.utils.dependencies import get_current_active_user
 from app.utils.responses import success_response
 
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 settings = get_settings()
 
 
-async def require_admin(current_user: User = Depends(get_current_user)) -> User:
+async def require_admin(current_user: User = Depends(get_current_active_user)) -> User:
     if not await admin_allowlist_service.is_admin(current_user.username, current_user.discriminator):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return current_user

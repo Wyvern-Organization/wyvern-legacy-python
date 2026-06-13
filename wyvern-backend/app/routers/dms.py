@@ -8,7 +8,7 @@ from app.schemas.dm import DMChannelOut, DMCreateRequest, DMParticipantOut
 from app.services.pubsub import publish_channel_event, publish_user_event
 from app.services.recommendations import TARGET_USER, record_recommendation_signal
 from app.services.sync_bridge import enqueue_upsert_event
-from app.utils.dependencies import get_current_user
+from app.utils.dependencies import get_current_active_user
 from app.utils.responses import success_response
 
 
@@ -49,7 +49,7 @@ async def _serialize_dm_channel(db: AsyncSession, channel: Channel) -> DMChannel
 async def create_dm_channel(
     payload: DMCreateRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     if payload.recipient_id == current_user.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot DM yourself")
@@ -125,7 +125,7 @@ async def create_dm_channel(
 
 
 @router.get("")
-async def list_dm_channels(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
+async def list_dm_channels(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)) -> dict:
     result = await db.execute(
         select(Channel)
         .join(DMParticipant, DMParticipant.channel_id == Channel.id)
@@ -151,7 +151,7 @@ async def list_dm_channels(db: AsyncSession = Depends(get_db), current_user: Use
 async def get_dm_channel(
     channel_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     result = await db.execute(select(Channel).where(and_(Channel.id == channel_id, Channel.type == ChannelType.dm)))
     channel = result.scalar_one_or_none()
@@ -182,7 +182,7 @@ async def get_dm_channel(
 async def close_dm_channel(
     channel_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     result = await db.execute(select(Channel).where(and_(Channel.id == channel_id, Channel.type == ChannelType.dm)))
     channel = result.scalar_one_or_none()

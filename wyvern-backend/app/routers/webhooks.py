@@ -19,7 +19,7 @@ from app.services.access import ensure_channel_access, get_channel_or_404
 from app.services.community import generate_secret_token, hash_secret_token, record_server_activity
 from app.services.pubsub import publish_channel_event
 from app.services.rate_limiter import rate_limiter
-from app.utils.dependencies import get_current_user
+from app.utils.dependencies import get_current_active_user
 from app.utils.responses import success_response
 
 
@@ -106,7 +106,7 @@ async def _channel_member_ids(db: AsyncSession, channel: Channel) -> set[str]:
 async def list_webhooks(
     server_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     membership = await _server_membership(db, server_id, current_user.id)
     if membership is None or not _can_manage_webhooks(membership.role):
@@ -127,7 +127,7 @@ async def create_webhook(
     payload: WebhookCreateRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     membership = await _server_membership(db, server_id, current_user.id)
     if membership is None or not _can_manage_webhooks(membership.role):
@@ -176,7 +176,7 @@ async def create_webhook(
 async def delete_webhook(
     webhook_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     webhook = await _load_webhook_or_404(db, webhook_id)
     membership = await _server_membership(db, webhook.server_id, current_user.id)
@@ -203,7 +203,7 @@ async def rotate_webhook_token(
     webhook_id: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     webhook = await _load_webhook_or_404(db, webhook_id)
     membership = await _server_membership(db, webhook.server_id, current_user.id)
@@ -239,7 +239,7 @@ async def list_webhook_deliveries(
     server_id: str,
     webhook_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict:
     webhook = await _load_webhook_or_404(db, webhook_id)
     if webhook.server_id != server_id:

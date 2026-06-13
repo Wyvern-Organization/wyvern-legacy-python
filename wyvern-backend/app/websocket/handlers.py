@@ -1,3 +1,6 @@
+import asyncio
+from collections import defaultdict
+
 from fastapi import WebSocket, WebSocketDisconnect
 from sqlalchemy import and_, select
 
@@ -6,8 +9,10 @@ from app.database import AsyncSessionLocal
 from app.models import Channel, ChannelType, DMParticipant, ServerMember, User
 from app.models.enums import PresenceStatus
 from app.services.access import ensure_channel_access
+from app.services.legal import user_requires_legal_reacceptance
 from app.services.live_bridge import queue_realtime_event
 from app.services.presence import presence_service
+from app.services.pubsub import publish_channel_event
 from app.services.realtime import broadcast_presence_update
 from app.services.voice_realtime import bridge_call_signal, bridge_voice_join, bridge_voice_leave, emit_voice_participants, voice_participants_payload
 from app.utils.security import TokenError, decode_token
@@ -15,6 +20,11 @@ from app.websocket.manager import manager
 
 
 settings = get_settings()
+TYPING_TTL_SECONDS = 8.0
+_typing_users_by_channel: dict[str, set[str]] = defaultdict(set)
+_typing_channels_by_user: dict[str, set[str]] = defaultdict(set)
+_typing_expiry_tasks: dict[tuple[str, str], asyncio.Task] = {}
+_typing_expiry_tokens: dict[tuple[str, str], int] = {}
 
 
 async def _auth_websocket_user(token: str | None) -> str:
@@ -76,11 +86,80 @@ async def _emit_voice_participants(channel_id: str, participants: set[str]) -> N
 
 async def _handle_disconnect(user_id: str) -> None:
     left_channel_id, remaining = await manager.disconnect(user_id)
+    await _clear_user_typing(user_id)
     await broadcast_presence_update(user_id, PresenceStatus.offline)
     queue_realtime_event({"kind": "presence", "user_id": user_id, "status": PresenceStatus.offline.value})
     if left_channel_id is not None:
         await emit_voice_participants(left_channel_id)
         bridge_voice_leave(user_id, left_channel_id)
+
+
+def _typing_payload(channel_id: str) -> dict:
+    return {
+        "event": "typing.updated",
+        "data": {"channel_id": channel_id, "user_ids": sorted(_typing_users_by_channel.get(channel_id, set()))},
+    }
+
+
+async def _publish_typing_update(channel_id: str) -> None:
+    await publish_channel_event(channel_id, _typing_payload(channel_id), bridge=False)
+
+
+def _cancel_typing_expiry(channel_id: str, user_id: str) -> None:
+    task = _typing_expiry_tasks.pop((channel_id, user_id), None)
+    if task is not None:
+        task.cancel()
+
+
+def _deactivate_typing(channel_id: str, user_id: str) -> bool:
+    active_users = _typing_users_by_channel.get(channel_id)
+    if active_users is None or user_id not in active_users:
+        _cancel_typing_expiry(channel_id, user_id)
+        _typing_expiry_tokens.pop((channel_id, user_id), None)
+        return False
+
+    active_users.discard(user_id)
+    if not active_users:
+        _typing_users_by_channel.pop(channel_id, None)
+    user_channels = _typing_channels_by_user.get(user_id)
+    if user_channels is not None:
+        user_channels.discard(channel_id)
+        if not user_channels:
+            _typing_channels_by_user.pop(user_id, None)
+    _cancel_typing_expiry(channel_id, user_id)
+    _typing_expiry_tokens.pop((channel_id, user_id), None)
+    return True
+
+
+async def _expire_typing(channel_id: str, user_id: str, token: int) -> None:
+    try:
+        await asyncio.sleep(TYPING_TTL_SECONDS)
+        current_token = _typing_expiry_tokens.get((channel_id, user_id))
+        if current_token != token:
+            return
+        if _deactivate_typing(channel_id, user_id):
+            await _publish_typing_update(channel_id)
+    except asyncio.CancelledError:
+        return
+
+
+def _activate_typing(channel_id: str, user_id: str) -> bool:
+    users = _typing_users_by_channel[channel_id]
+    was_active = user_id in users
+    users.add(user_id)
+    _typing_channels_by_user[user_id].add(channel_id)
+    token = _typing_expiry_tokens.get((channel_id, user_id), 0) + 1
+    _typing_expiry_tokens[(channel_id, user_id)] = token
+    _cancel_typing_expiry(channel_id, user_id)
+    _typing_expiry_tasks[(channel_id, user_id)] = asyncio.create_task(_expire_typing(channel_id, user_id, token))
+    return not was_active
+
+
+async def _clear_user_typing(user_id: str) -> None:
+    channel_ids = sorted(_typing_channels_by_user.get(user_id, set()))
+    for channel_id in channel_ids:
+        if _deactivate_typing(channel_id, user_id):
+            await _publish_typing_update(channel_id)
 
 
 async def websocket_endpoint(websocket: WebSocket) -> None:
@@ -100,7 +179,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
     async with AsyncSessionLocal() as db:
         user_result = await db.execute(select(User).where(User.id == user_id))
-        if user_result.scalar_one_or_none() is None:
+        user = user_result.scalar_one_or_none()
+        if user is None or user_requires_legal_reacceptance(user):
             await websocket.close(code=1008)
             return
 
@@ -128,6 +208,10 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     user_id,
                     {"event": "subscribed", "data": {"channel_ids": allowed}},
                 )
+                for channel_id in allowed:
+                    active_typers = _typing_users_by_channel.get(channel_id)
+                    if active_typers:
+                        await manager.send_personal_message(user_id, _typing_payload(channel_id))
             elif action == "unsubscribe":
                 channel_ids = [str(item) for item in payload.get("channel_ids", []) if str(item)]
                 manager.unsubscribe(user_id, channel_ids)
@@ -156,6 +240,28 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                             },
                         },
                     )
+            elif action == "typing":
+                channel_id = str(payload.get("channel_id") or "")
+                if not channel_id:
+                    await manager.send_personal_message(
+                        user_id,
+                        {"event": "error", "data": {"message": "Invalid typing channel id"}},
+                    )
+                    continue
+
+                active = bool(payload.get("active"))
+                async with AsyncSessionLocal() as db:
+                    channel = await _resolve_accessible_channel(db, user_id, channel_id)
+                if channel is None:
+                    await manager.send_personal_message(
+                        user_id,
+                        {"event": "error", "data": {"message": "Typing channel not accessible"}},
+                    )
+                    continue
+
+                changed = _activate_typing(channel_id, user_id) if active else _deactivate_typing(channel_id, user_id)
+                if changed:
+                    await _publish_typing_update(channel_id)
             elif action == "join_voice":
                 channel_id = str(payload.get("channel_id") or "")
                 if not channel_id:
