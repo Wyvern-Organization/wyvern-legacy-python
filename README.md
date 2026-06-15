@@ -1,6 +1,6 @@
 # wyvern-legacy-python
 
-wyvern-legacy-python a legacy version of [Wyvern](https://wyvernhub.net) that was originally written in Python.
+wyvern-legacy-python is a legacy version of [Wyvern](https://wyvernhub.net) that was originally written in Python.
 
 ## Stack
 
