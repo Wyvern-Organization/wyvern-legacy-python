@@ -12,7 +12,7 @@ This codebase uses the following stack:
 No. This is the legacy Python-based version of Wyvern.
 
 ## Are you open to contributions?
-No, sorry.
+Not on `main`. We accept contributions on branch `open`.
 
 ## Can I fork this?
 Yes.
