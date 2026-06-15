@@ -1,8 +1,1 @@
-# TODO
 
- - Add MCP integration at app.wyvernhub.net/mcp (localhost:8009/mcp) so users can ask AI to do things in Wyvern. Make permissions customizable.
- - Finish UI refactor. Continue with UI A.
- - Create AGI. (This is a joke.)
- - [DONE] Fix settings For Devs tab and add Edge Mode toggle and warning modal back.
- [DONE] Move AI and Chat section under a new tab called API in settings.
- - Add a new /git endpoint for Workspaces and migrate them to Git.
