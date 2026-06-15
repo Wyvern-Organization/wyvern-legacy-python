@@ -13,3 +13,6 @@ No. This is the legacy Python-based version of Wyvern.
 
 ## Are you open to contributions?
 No, sorry.
+
+## Can I fork this?
+Yes.
