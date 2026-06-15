@@ -1,17 +1,1 @@
-Wyvern Contribution Guardrail
 
-Before making changes, please follow this rule:
-
-- New or unstable work goes to Edge first.
-- Stable must not be changed directly unless the admin explicitly promotes the Edge version.
-- If a change works in Edge, wait for the admin to click "Push Edge to Stable" in /admin before it is added to Stable.
-- Do not copy experimental features straight into Stable.
-- Keep Stable safe, predictable, and unchanged until promotion happens.
-
-In short:
-
-1. Build and test in Edge.
-2. Verify the change.
-3. Let the admin promote it to Stable.
-
-If you are unsure whether a change belongs in Edge or Stable, put it in Edge and ask for promotion later.
