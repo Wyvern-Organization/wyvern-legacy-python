@@ -16,3 +16,5 @@ Not on `main`, but here on `open`.
 
 ## Can I fork this?
 Yes.
+
+GitHub connector smoke test.
